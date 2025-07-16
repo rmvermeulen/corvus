@@ -1,3 +1,6 @@
+use bevy::app::App;
+use cobweb_starter::root_plugin;
+
 fn main() {
-    println!("Hello, world!");
+    App::new().add_plugins(root_plugin).run();
 }
