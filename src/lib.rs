@@ -13,7 +13,13 @@ fn setup_ui(mut commands: Commands, mut scene_builder: SceneBuilder, time: Res<T
         .ui_root()
         .spawn_scene(("main", "menu"), &mut scene_builder, |sh| {
             let load_time = time.elapsed_secs();
-            sh.update_text(format!("Menu has loaded ({load_time} seconds)"));
+            sh.get("label")
+                .update_text(format!("Menu has loaded ({load_time} seconds)"));
+
+            sh.get("buttons::exit")
+                .on_pressed(|mut commands: Commands| {
+                    commands.send_event(AppExit::Success);
+                });
         });
 }
 
