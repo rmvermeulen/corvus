@@ -1692,6 +1692,7 @@ dependencies = [
  "bevy",
  "bevy_cobweb",
  "bevy_cobweb_ui",
+ "log",
 ]
 
 [[package]]
