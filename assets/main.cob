@@ -4,6 +4,19 @@ builtin.colors.tailwind as tw
 
 #defs
 
++selected_bg_anim = \
+    Multi<Animated<BackgroundColor>>[
+        {
+            idle: Hsla{ hue:221 saturation:0.5 lightness:0.15 alpha:0.5 }
+            hover: Hsla{ hue:24 saturation:0.5 lightness:0.50 alpha:1.0 }
+        }
+        {
+            state: [Selected]
+            idle: Hsla{ hue: 50 saturation:0.5 lightness:0.5 alpha:0.5 }
+        }
+    ]
+\
+
 +list_items = \
     "text1"
         TextLine{text:"lmao1"}
@@ -33,15 +46,13 @@ builtin.colors.tailwind as tw
 
 +scroll = \ 
     ScrollBase
-    FlexNode{
-        // width:100%
-        flex_grow:1
-        flex_direction:Row
-    }
+    FlexNode{}
     "view"
         ScrollView
         FlexNode{
-            min_height:200px
+            min_width:100px
+            min_height:100px
+            width:100%
             height:100%
             flex_grow:1
             clipping:ScrollYClipX
@@ -99,19 +110,46 @@ builtin.colors.tailwind as tw
             }
     "settings"
         BackgroundColor($tw::AMBER_500)
-        FlexNode{min_width:300px min_height:150px}
+        FlexNode{
+            min_width:300px
+            min_height:150px
+            justify_main: SpaceBetween
+        }
         Splat<Margin>(auto)
         Splat<Border>(2px)
         BorderColor(#000000)
-        "left"
-            +scroll{
-                "view"
-                    "shim"
-                        +list_items{}
-            }
-        "right"
-            +scroll{
-                "view"
-                    "shim"
-                        +list_items{}
-            } 
+        "resolution"
+            FlexNode{
+                justify_self_cross: Stretch
+                justify_main: FlexStart
+                flex_grow:1 flex_direction:Column}
+            "label"
+                TextLine{text:"100x100"}
+            "options"
+                RadioGroup
+                +scroll{
+                    "view"
+                        "shim"
+                            "res_800x600"
+                                RadioButton
+                                +selected_bg_anim{}
+                                TextLine{text:"800x600"}
+                            "res_1024x768"
+                                RadioButton
+                                +selected_bg_anim{}
+                                TextLine{text:"1024x768"}
+                            "res_1920x1080"
+                                RadioButton
+                                +selected_bg_anim{}
+                                TextLine{text:"1920x1080"}
+                }
+        "foo_bar"
+            FlexNode{flex_grow:1 flex_direction:Column}
+            "label"
+                TextLine{text:"Foobar"}
+            "options"
+                +scroll{
+                    "view"
+                        "shim"
+                            +list_items{}
+                } 

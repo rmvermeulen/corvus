@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_cobweb_ui::prelude::*;
+use bevy_cobweb_ui::{prelude::*, sickle::UpdateTextExt};
 
 use crate::loading_screen::loading_screen_plugin;
 
@@ -19,7 +19,17 @@ fn setup_ui(mut commands: Commands, mut scene_builder: SceneBuilder, time: Res<T
             sh.get("buttons::exit")
                 .on_pressed(|mut commands: Commands| {
                     commands.send_event(AppExit::Success);
+                    DONE
                 });
+
+            let res_label = sh.get("settings::resolution::label").id();
+            for res in &["800x600", "1024x768", "1920x1080"] {
+                let path = format!("settings::resolution::options::view::shim::res_{res}");
+                sh.get(path).on_select(move |mut commands: Commands| {
+                    commands.get_entity(res_label)?.update_text(*res);
+                    DONE
+                });
+            }
         });
 }
 
