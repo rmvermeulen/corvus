@@ -44,6 +44,9 @@ fn setup_ui(mut commands: Commands, mut scene_builder: SceneBuilder, time: Res<T
                     c.ui_builder(tab_content_entity)
                         .spawn_scene_simple(("main", "info_tab"), &mut s);
                 });
+                // Set this up as the starting tab by selecting it
+                let id = scene_handle.id();
+                scene_handle.react().entity_event(id, Select);
             });
 
             // set up exit tab
