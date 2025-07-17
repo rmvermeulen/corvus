@@ -30,6 +30,40 @@ fn setup_ui(mut commands: Commands, mut scene_builder: SceneBuilder, time: Res<T
                     DONE
                 });
             }
+
+            // Get entity to place in our scene
+            let tab_content_entity = sh.get("tab_content").id();
+
+            // set up info tab
+            sh.edit("tab_menu::info", |scene_handle| {
+                scene_handle.on_select(move |mut c: Commands, mut s: SceneBuilder| {
+                    c.get_entity(tab_content_entity)
+                        .unwrap()
+                        .despawn_related::<Children>();
+                    // Use this instead of c.get_entity()
+                    c.ui_builder(tab_content_entity)
+                        .spawn_scene_simple(("main", "info_tab"), &mut s);
+                });
+            });
+
+            // set up exit tab
+            sh.edit("tab_menu::exit", |scene_handle| {
+                scene_handle.on_select(move |mut c: Commands, mut s: SceneBuilder| {
+                    c.get_entity(tab_content_entity)
+                        .unwrap()
+                        .despawn_related::<Children>();
+                    // Use this instead of c.get_entity()
+                    c.ui_builder(tab_content_entity).spawn_scene(
+                        ("main", "exit_tab"),
+                        &mut s,
+                        |sh| {
+                            sh.on_pressed(|mut commands: Commands| {
+                                commands.send_event(AppExit::Success);
+                            });
+                        },
+                    );
+                });
+            });
         });
 }
 

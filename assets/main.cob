@@ -153,3 +153,57 @@ builtin.colors.tailwind as tw
                         "shim"
                             +list_items{}
                 } 
+    //Actual tab menu
+    "tab_menu"
+        RadioGroup
+        GridNode{grid_auto_flow:Column column_gap:10px}
+        "info"
+            RadioButton
+            FlexNode{justify_main:Center}
+            Multi<Animated<BackgroundColor>>[
+                {
+                    idle: Hsla{ hue:221 saturation:0.5 lightness:0.05 alpha:0.5 }
+                }
+                {
+                    state: [Selected]
+                    idle: Hsla{ hue:221 saturation:0.5 lightness:0.20 alpha:0.5 }
+                }
+            ]  
+            "text"
+                TextLine{ text: "Info" }
+                TextLineColor(Hsla{ hue:60 saturation:0.85 lightness:0.90 alpha:1.0 })
+        "exit"
+            RadioButton
+            FlexNode{justify_main:Center}
+            Multi<Animated<BackgroundColor>>[
+                {
+                    idle: Hsla{ hue:221 saturation:0.5 lightness:0.05 alpha:0.5 }
+                }
+                {
+                    state: [Selected]
+                    idle: Hsla{ hue:221 saturation:0.5 lightness:0.20 alpha:0.5 }
+                }
+            ]  
+            "text"
+                TextLine{ text: "Exit"}
+                TextLineColor(Hsla{ hue:60 saturation:0.85 lightness:0.90 alpha:1.0 })
+
+    //This is what changes based on menu selection
+    "tab_content"
+        GridNode{ height:25vh }
+        BackgroundColor(Hsla{ hue:221 saturation:0.5 lightness:0.20 alpha:0.5 })
+
+    "footer_content"
+        FlexNode{justify_main:Center}
+        "text"
+            TextLine{ text: "I don't change" }
+            TextLineColor(Hsla{hue:0 saturation:0.00 lightness:0.85 alpha:1.0})
+
+"info_tab"
+    FlexNode{justify_main:Center}
+    TextLine{text:"You are in the info tab"}
+
+"exit_tab"
+    //Not implemented
+    FlexNode{justify_main:Center}
+    TextLine{text:"Click me to quit"}
