@@ -1,5 +1,6 @@
 use bevy::prelude::*;
-use bevy_cobweb_ui::{prelude::*, sickle::UpdateTextExt};
+use bevy_cobweb_ui::prelude::*;
+use bevy_cobweb_ui::sickle::UpdateTextExt;
 
 use crate::loading_screen::loading_screen_plugin;
 

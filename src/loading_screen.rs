@@ -1,4 +1,5 @@
-use bevy::{color::palettes::css::BLACK, prelude::*};
+use bevy::color::palettes::css::BLACK;
+use bevy::prelude::*;
 use bevy_cobweb_ui::prelude::*;
 
 #[derive(Component)]
