@@ -1,78 +1,50 @@
 #import
-theme as theme
-builtin.colors.tailwind as tw
+widgets as widgets
+colors as colors
 
 #defs
 
-+selected_bg_anim = \
-    Multi<Animated<BackgroundColor>>[
-        {
-            idle: Hsla{ hue:221 saturation:0.5 lightness:0.15 alpha:0.5 }
-            hover: Hsla{ hue:24 saturation:0.5 lightness:0.50 alpha:1.0 }
-        }
-        {
-            state: [Selected]
-            idle: Hsla{ hue: 50 saturation:0.5 lightness:0.5 alpha:0.5 }
-        }
-    ]
-\
-
 +list_items = \
     "text1"
-        TextLine{text:"lmao1"}
-    "text2"
-        TextLine{text:"lmao2"}
-    "text3"
-        TextLine{text:"lmao3"}
-    "text4"
-        TextLine{text:"lmao4"}
-    "text5"
-        TextLine{text:"lmao5"}
-    "text5"
-        TextLine{text:"lmao6"}
-    "text7"
-        TextLine{text:"lmao7"}
-    "text8"
-        TextLine{text:"lmao8"}
-    "text9"
-        TextLine{text:"lmao9"}
-    "text10"
-        TextLine{text:"lmao10"}
-    "text11"
-        TextLine{text:"lmao11"}
-    "text12"
-        TextLine{text:"lmao12"}
-\
-
-+scroll = \ 
-    ScrollBase
-    FlexNode{}
-    "view"
-        ScrollView
-        FlexNode{
-            min_width:100px
-            min_height:100px
-            width:100%
-            height:100%
-            flex_grow:1
-            clipping:ScrollYClipX
+        +widgets::list_option{
+            TextLine{text:"lmao1"}
         }
-        BackgroundColor($tw::AMBER_400)
-        "shim"
-            ScrollShim
-            AbsoluteNode{
-                flex_direction:Column
-                justify_main:Center
-                justify_cross:Center
-            }
-    "vertical"
-        ScrollBar{axis:Y}
-        FlexNode{height:100% width:14px}
-        BackgroundColor(#888888)
-        "handle"
-            ScrollHandle
-            AbsoluteNode{width:100%}
-            BackgroundColor(#BBBBBB)
+    "text2"
+        +widgets::list_option{
+            TextLine{text:"lmao2"}
+        }
+    "text3"
+        +widgets::list_option{
+            TextLine{text:"lmao3"}
+        }
+    "text4"
+        +widgets::list_option{
+            TextLine{text:"lmao4"}
+        }
+    "text5"
+        +widgets::list_option{
+            TextLine{text:"lmao5"}
+        }
+    "text6"
+        +widgets::list_option{
+            TextLine{text:"lmao6"}
+        }
+    "text7"
+        +widgets::list_option{
+            TextLine{text:"lmao7"}
+        }
+    "text8"
+        +widgets::list_option{
+            TextLine{text:"lmao8"}
+        }
+    "text9"
+        +widgets::list_option{
+            TextLine{text:"lmao9"}
+        }
+    "text10"
+        +widgets::list_option{
+            TextLine{text:"lmao10"}
+        }
 \
 
 #scenes
@@ -81,39 +53,79 @@ builtin.colors.tailwind as tw
     Splat<Padding>(8px)
     Splat<Margin>(auto)
     BrRadius(8px)
-    BackgroundColor($theme::primary)
+    BackgroundColor($widgets::colors::primary)
     "label"
         Splat<Margin>(auto)
-        TextLineColor($theme::tertiary)
+        TextLineColor($widgets::colors::tertiary)
         TextLine{text:"Menu has loaded!"}
+
+    //Actual tab menu
+    "tab_menu"
+        +widgets::tab_menu{
+            "main"
+                +widgets::tab_button{
+                    "text"
+                        TextLine{text:"main"}
+                }
+            "settings"
+                +widgets::tab_button{
+                    "text"
+                        TextLine{text:"settings"}
+                }
+            "exit"
+                +widgets::tab_button{
+                    "text"
+                        TextLine{text:"exit"}
+                }
+        }
+
+    //This is what changes based on menu selection
+    "tab_content"
+        FlexNode{ justify_self_cross:Stretch }
+        BackgroundColor(Hsla{ hue:221 saturation:0.5 lightness:0.20 alpha:0.5 })
+
+    "footer_content"
+        FlexNode{justify_main:Center}
+        "text"
+            TextLine{ text: "I don't change" }
+            TextLineColor(Hsla{hue:0 saturation:0.00 lightness:0.85 alpha:1.0})
+
+"main_tab"
+    FlexNode{width:100% justify_main:Center}
     "buttons"
-        BackgroundColor($tw::AMBER_500)
-        FlexNode{flex_direction:Column row_gap:8px}
+        BackgroundColor($colors::button_bg)
+        FlexNode{
+            width:100%
+            flex_direction:Column row_gap:8px}
         Splat<Margin>(auto)
         "start"
-            +theme::button{
+            +widgets::button{
                 Splat<Margin>(auto)
+                BackgroundColor($colors::button_bg2)
                 "text"
                     TextLine{text:"Start"}
             }
         "settings"
-            +theme::button{
+            +widgets::button{
                 Splat<Margin>(auto)
                 "text"
                     TextLine{text:"Settings"}
             }
         "exit"
-            +theme::button{
+            +widgets::button{
                 Splat<Margin>(auto)
                 "text"
                     TextLine{text:"Exit"}
             }
+
+"settings_tab"
+    FlexNode{flex_grow:1 justify_main:Center}
     "settings"
-        BackgroundColor($tw::AMBER_500)
+        BackgroundColor($colors::button_bg)
         FlexNode{
             min_width:300px
             min_height:150px
-            justify_main: SpaceBetween
+            justify_main: Center
         }
         Splat<Margin>(auto)
         Splat<Border>(2px)
@@ -127,83 +139,26 @@ builtin.colors.tailwind as tw
                 TextLine{text:"100x100"}
             "options"
                 RadioGroup
-                +scroll{
+                +widgets::scroll{
                     "view"
                         "shim"
-                            "res_800x600"
-                                RadioButton
-                                +selected_bg_anim{}
-                                TextLine{text:"800x600"}
-                            "res_1024x768"
-                                RadioButton
-                                +selected_bg_anim{}
-                                TextLine{text:"1024x768"}
-                            "res_1920x1080"
-                                RadioButton
-                                +selected_bg_anim{}
-                                TextLine{text:"1920x1080"}
+                            // NOTE: items added from code
                 }
         "foo_bar"
-            FlexNode{flex_grow:1 flex_direction:Column}
-            "label"
-                TextLine{text:"Foobar"}
-            "options"
-                +scroll{
+            +widgets::select_list{
+                "value"
+                    TextLine{text:"Foobar"}
+                "options"
                     "view"
                         "shim"
                             +list_items{}
-                } 
-    //Actual tab menu
-    "tab_menu"
-        RadioGroup
-        GridNode{grid_auto_flow:Column column_gap:10px}
-        "info"
-            RadioButton
-            FlexNode{justify_main:Center}
-            Multi<Animated<BackgroundColor>>[
-                {
-                    idle: Hsla{ hue:221 saturation:0.5 lightness:0.05 alpha:0.5 }
-                }
-                {
-                    state: [Selected]
-                    idle: Hsla{ hue:221 saturation:0.5 lightness:0.20 alpha:0.5 }
-                }
-            ]  
-            "text"
-                TextLine{ text: "Info" }
-                TextLineColor(Hsla{ hue:60 saturation:0.85 lightness:0.90 alpha:1.0 })
-        "exit"
-            RadioButton
-            FlexNode{justify_main:Center}
-            Multi<Animated<BackgroundColor>>[
-                {
-                    idle: Hsla{ hue:221 saturation:0.5 lightness:0.05 alpha:0.5 }
-                }
-                {
-                    state: [Selected]
-                    idle: Hsla{ hue:221 saturation:0.5 lightness:0.20 alpha:0.5 }
-                }
-            ]  
-            "text"
-                TextLine{ text: "Exit"}
-                TextLineColor(Hsla{ hue:60 saturation:0.85 lightness:0.90 alpha:1.0 })
 
-    //This is what changes based on menu selection
-    "tab_content"
-        GridNode{ height:25vh }
-        BackgroundColor(Hsla{ hue:221 saturation:0.5 lightness:0.20 alpha:0.5 })
-
-    "footer_content"
-        FlexNode{justify_main:Center}
-        "text"
-            TextLine{ text: "I don't change" }
-            TextLineColor(Hsla{hue:0 saturation:0.00 lightness:0.85 alpha:1.0})
-
-"info_tab"
-    FlexNode{justify_main:Center}
-    TextLine{text:"You are in the info tab"}
+            }
 
 "exit_tab"
     //Not implemented
     FlexNode{justify_main:Center}
     TextLine{text:"Click me to quit"}
+
+"tab_button"
+    +widgets::tab_button{}

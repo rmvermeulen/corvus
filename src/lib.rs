@@ -14,8 +14,7 @@ fn setup_ui(mut commands: Commands, mut scene_builder: SceneBuilder, time: Res<T
         .ui_root()
         .spawn_scene(("main", "menu"), &mut scene_builder, |sh| {
             let load_time = time.elapsed_secs();
-            sh.get("label")
-                .update_text(format!("Menu has loaded ({load_time} seconds)"));
+            sh.get("label").update_text(format!("{load_time} seconds"));
 
             sh.get("buttons::exit")
                 .on_pressed(|mut commands: Commands| {
@@ -23,50 +22,70 @@ fn setup_ui(mut commands: Commands, mut scene_builder: SceneBuilder, time: Res<T
                     DONE
                 });
 
-            let res_label = sh.get("settings::resolution::label").id();
-            for res in &["800x600", "1024x768", "1920x1080"] {
-                let path = format!("settings::resolution::options::view::shim::res_{res}");
-                sh.get(path).on_select(move |mut commands: Commands| {
-                    commands.get_entity(res_label)?.update_text(*res);
-                    DONE
-                });
-            }
-
             // Get entity to place in our scene
             let tab_content_entity = sh.get("tab_content").id();
 
             // set up info tab
-            sh.edit("tab_menu::info", |scene_handle| {
-                scene_handle.on_select(move |mut c: Commands, mut s: SceneBuilder| {
-                    c.get_entity(tab_content_entity)
-                        .unwrap()
-                        .despawn_related::<Children>();
-                    // Use this instead of c.get_entity()
-                    c.ui_builder(tab_content_entity)
-                        .spawn_scene_simple(("main", "info_tab"), &mut s);
-                });
+            sh.edit("tab_menu::main", |scene_handle| {
+                scene_handle.on_select(
+                    move |mut c: Commands, mut s: SceneBuilder| {
+                        c.entity(tab_content_entity).despawn_related::<Children>();
+                        c.ui_builder(tab_content_entity)
+                            .spawn_scene_simple(("main", "main_tab"), &mut s);
+                    },
+                );
                 // Set this up as the starting tab by selecting it
                 let id = scene_handle.id();
                 scene_handle.react().entity_event(id, Select);
             });
 
+            sh.edit("tab_menu::settings", |scene_handle| {
+                scene_handle.on_select(
+                    move |mut c: Commands, mut s: SceneBuilder| {
+                        c.entity(tab_content_entity).despawn_related::<Children>();
+                        c.ui_builder(tab_content_entity).spawn_scene(
+                            ("main", "settings_tab"),
+                            &mut s,
+                            |sh| {
+                                let resolution_label = sh.get("settings::resolution::label").id();
+                                let mut shim = sh.get("settings::resolution::options::view::shim");
+                                let id = shim.id();
+                                for resolution in &["800x600", "1024x768", "1920x1080"] {
+                                    shim.update(
+                                        move |_: TargetId, mut commands: Commands, mut scene_builder: SceneBuilder| {
+                                            commands.ui_builder(id).spawn_scene(
+                                                ("main", "tab_button"),
+                                                &mut scene_builder,
+                                                |sh| {
+                                                    // set button text
+                                                    sh.get("text").update_text(*resolution);
+                                                    // set value label
+                                                    sh.on_select(move |mut commands: Commands| {
+                                                        commands
+                                                            .get_entity(resolution_label)?
+                                                            .update_text(*resolution);
+                                                        DONE
+                                                    });
+                                                },
+                                            );
+                                        },
+                                    );
+                                }
+                            },
+                        );
+                    },
+                );
+            });
+
             // set up exit tab
             sh.edit("tab_menu::exit", |scene_handle| {
-                scene_handle.on_select(move |mut c: Commands, mut s: SceneBuilder| {
-                    c.get_entity(tab_content_entity)
-                        .unwrap()
-                        .despawn_related::<Children>();
-                    // Use this instead of c.get_entity()
-                    c.ui_builder(tab_content_entity).spawn_scene(
-                        ("main", "exit_tab"),
-                        &mut s,
-                        |sh| {
-                            sh.on_pressed(|mut commands: Commands| {
-                                commands.send_event(AppExit::Success);
-                            });
-                        },
-                    );
-                });
+                scene_handle.on_select(
+                    move |mut c: Commands, mut s: SceneBuilder| {
+                        c.entity(tab_content_entity).despawn_related::<Children>();
+                        c.ui_builder(tab_content_entity)
+                            .spawn_scene_simple(("main", "exit_tab"), &mut s);
+                    },
+                );
             });
         });
 }

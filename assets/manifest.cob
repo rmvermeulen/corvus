@@ -1,3 +1,4 @@
 #manifest
 "main.cob" as main
-"theme.cob" as theme
+"widgets.cob" as widgets
+"colors.cob" as colors
