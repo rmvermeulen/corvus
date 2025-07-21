@@ -60,7 +60,7 @@ colors as colors
         TextLine{text:"Menu has loaded!"}
 
     //Actual tab menu
-    "tab_menu"
+    "tab_buttons"
         +widgets::tab_menu{
             "main"
                 +widgets::tab_button{
@@ -158,7 +158,11 @@ colors as colors
 "exit_tab"
     //Not implemented
     FlexNode{justify_main:Center}
-    TextLine{text:"Click me to quit"}
+    "buttons"
+        "back"
+            TextLine{text:"Back"}
+        "exit"
+            TextLine{text:"Quit"}
 
 "tab_button"
     +widgets::tab_button{}
