@@ -3,14 +3,19 @@ colors as colors
 
 #defs
 
-+button = \
++bg_anim = \
     Animated<BackgroundColor>{
         idle:  $colors::bg_idle
         hover: $colors::bg_hover
         press: $colors::bg_press
     }
+\
+
++button = \
+    +bg_anim{}
     BrRadius(8px)
-    BackgroundColor($colors::tertiary)
+    Marker::Button
+    // BackgroundColor($colors::tertiary)
     "text"
         Splat<Margin>(auto)
         TextLineColor($colors::text_idle)
@@ -36,6 +41,7 @@ colors as colors
 
 +list_option = \
     RadioButton
+    Marker::Option
     +selected_bg_anim{}
     TextLine{text:"[option]"}
 \
@@ -43,7 +49,7 @@ colors as colors
 
 +scroll = \ 
     ScrollBase
-    FlexNode{}
+    FlexNode{ width:90% height:90% }
     "view"
         ScrollView
         FlexNode{
@@ -76,6 +82,7 @@ colors as colors
     FlexNode{flex_grow:1 flex_direction:Column}
     RadioGroup
     "value"
+        Marker::Label
         TextLine{text:"[value]"}
     "options"
         +scroll{}
@@ -83,6 +90,7 @@ colors as colors
 
 +tab_button = \
     RadioButton
+    Marker::Button
     FlexNode{justify_main:Center}
     Multi<Animated<BackgroundColor>>[
         {
@@ -104,3 +112,15 @@ colors as colors
     RadioGroup
     GridNode{grid_auto_flow:Column column_gap:10px}
 \
+
+#scenes
+
+"button"
+    +button{}
+
+"tab_button"
+    +tab_button{}
+
+"list_option"
+    +list_option{}
+

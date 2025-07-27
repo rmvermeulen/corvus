@@ -13,6 +13,7 @@ bevy_cobweb_ui = { version = "0.21.0", features = [
     "widgets",
     "colors",
 ] }
+itertools = "0.14.0"
 # runtime performance improvement: disable bevy's internal logging
 log = { version = "*", features = [
     "max_level_debug",
