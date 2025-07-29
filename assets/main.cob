@@ -59,7 +59,12 @@ colors as colors
     "label"
         Margin{ left:auto right:auto }
         TextLineColor($widgets::colors::tertiary)
-        TextLine{text:"Loading took "}
+        TextLine{text:""}
+    "refresh"
+        +widgets::button{
+            "text"
+                TextLine{text:"Refresh"}
+        }
     //Actual tab menu
     "tab_buttons"
         +widgets::tab_menu{

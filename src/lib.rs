@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use bevy::prelude::*;
 use bevy_cobweb::prelude::*;
 use bevy_cobweb_ui::prelude::*;
@@ -5,7 +7,7 @@ use bevy_cobweb_ui::sickle::UpdateTextExt;
 use itertools::Itertools;
 
 use crate::loading_screen::loading_screen_plugin;
-use crate::view_state::view_state_plugin;
+use crate::view_state::{ViewState, view_state_plugin};
 
 /// *not* to be confused with [bevy::prelude::LoadState]
 pub type CobwebLoadState = bevy_cobweb_ui::prelude::LoadState;
@@ -45,6 +47,7 @@ enum MenuTab {
 }
 
 enum MenuCommand {
+    Refresh,
     ChangeTab(MenuTab),
 }
 
@@ -147,6 +150,9 @@ fn update_tab_content_on_broadcast(
         return;
     };
     match event {
+        MenuCommand::Refresh => {
+            commands.set_state(ViewState::Reset);
+        }
         MenuCommand::ChangeTab(tab) => {
             let id = *id;
             // clear current tree
@@ -172,21 +178,33 @@ fn update_tab_content_on_broadcast(
     }
 }
 
-fn setup_ui(mut commands: Commands, mut scene_builder: SceneBuilder, time: Res<Time>) {
+struct DespawnUi;
+
+fn setup_ui(
+    mut first_load_time: Local<Option<Duration>>,
+    mut commands: Commands,
+    mut scene_builder: SceneBuilder,
+    time: Res<Time>,
+) {
     commands
         .ui_root()
         .spawn_scene(("main", "root"), &mut scene_builder, |sh| {
-            let load_time = time.elapsed_secs();
-            sh.get("label")
-                .update_text(format!("Loaded in {load_time} seconds"));
+            let load_time = first_load_time.get_or_insert(time.elapsed());
+            let load_time_label = format!("Loaded in {} seconds", load_time.as_secs_f32());
+            sh.get("label").update_text(load_time_label);
 
-            // setup on_pressed for all tabs
+            sh.get("refresh").on_pressed(|mut commands: Commands| {
+                commands.react().broadcast(MenuCommand::Refresh);
+            });
+
             sh.edit("tab_buttons", setup_tab_buttons);
 
             sh.get("tab_content")
                 .update_on(broadcast::<MenuCommand>(), update_tab_content_on_broadcast);
 
             sh.react().broadcast(MenuCommand::ChangeTab(MenuTab::Main));
+
+            sh.despawn_on_broadcast::<DespawnUi>();
         });
 }
 
@@ -195,5 +213,9 @@ pub fn root_plugin(app: &mut App) {
         .register_component_type::<Marker>()
         .add_plugins((loading_screen_plugin, view_state_plugin))
         .load("manifest.cob")
-        .add_systems(OnEnter(LoadState::Done), setup_ui);
+        .add_systems(OnEnter(ViewState::Stable), setup_ui)
+        .add_systems(OnEnter(ViewState::Reset), |mut commands: Commands| {
+            debug!("despawn ui");
+            commands.react().broadcast(DespawnUi);
+        });
 }

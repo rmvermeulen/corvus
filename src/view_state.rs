@@ -14,6 +14,7 @@ pub fn view_state_plugin(app: &mut App) {
     app.add_sub_state::<ViewState>().add_systems(
         OnEnter(ViewState::Reset),
         |mut next_state: ResMut<NextState<ViewState>>| {
+            debug!("Reset! going back to ViewState::Stable");
             next_state.set(ViewState::Stable);
         },
     );
