@@ -1,3 +1,4 @@
+use std::env;
 use std::fs::{FileType, read_to_string};
 use std::path::PathBuf;
 use std::time::Duration;
@@ -8,6 +9,7 @@ use bevy_cobweb::prelude::*;
 use bevy_cobweb_ui::prelude::*;
 use bevy_cobweb_ui::sickle::UpdateTextExt;
 use cfg_if::cfg_if;
+use derive_more::From;
 use itertools::Itertools;
 
 use crate::loading_screen::loading_screen_plugin;
@@ -35,6 +37,15 @@ impl<'w, 's> ChangeTabExt for Commands<'w, 's> {
     }
 }
 
+#[derive(Debug, Deref, DerefMut, From, Resource)]
+pub struct CurrentDirectory(Option<PathBuf>);
+
+impl CurrentDirectory {
+    fn from_path<P: Into<PathBuf>>(path: P) -> Self {
+        Self(Some(path.into()))
+    }
+}
+
 #[derive(Clone, Component, Copy, Debug, Default, PartialEq, Reflect)]
 enum Marker {
     #[default]
@@ -45,16 +56,22 @@ enum Marker {
     Button,
 }
 
+#[derive(Clone, Component, Copy, Debug, PartialEq)]
 enum MenuTab {
     Main,
     Settings,
 }
 
+#[derive(Clone, Component, Debug, PartialEq)]
 enum MenuCommand {
     Refresh,
     SetPreview(Option<PathBuf>),
     ChangeTab(MenuTab),
+    SetDirectory(PathBuf),
 }
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct CurrentDirectoryChanged;
 
 fn setup_tab_buttons<'a>(
     sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>,
@@ -69,7 +86,7 @@ fn setup_tab_buttons<'a>(
     DONE
 }
 
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Component, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum EntryType {
     Directory,
     File,
@@ -113,7 +130,24 @@ impl From<FileType> for EntryType {
     }
 }
 
+pub fn broadcast_fn<T: Clone + Send + Sync + 'static>(value: T) -> impl Fn(Commands) {
+    move |mut commands| {
+        commands.react().broadcast(value.clone());
+    }
+}
+
 fn init_main_tab<'a>(sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
+    sh.get("header::directory::text").update_on(
+        broadcast::<CurrentDirectoryChanged>(),
+        |id: TargetId, mut text_editor: TextEditor, current_directory: Res<CurrentDirectory>| {
+            let text = current_directory
+                .clone()
+                .map(|path| path.to_string_lossy().to_string())
+                .unwrap_or_else(|| "[invalid directory]".to_string());
+            write_text!(text_editor, *id, "{text}");
+        },
+    );
+
     for (entry_type, entry) in std::fs::read_dir(".")
         .unwrap()
         .filter_map(Result::ok)
@@ -123,24 +157,22 @@ fn init_main_tab<'a>(sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
         })
         .sorted_by_key(|pair| pair.0)
     {
-        sh.get("overview::items")
+        let path = entry.path();
+        let menu_command = match entry_type {
+            EntryType::File | EntryType::Symlink => MenuCommand::SetPreview(Some(path.clone())),
+            EntryType::Directory => MenuCommand::SetDirectory(path.clone()),
+            _ => unimplemented!("handling unknown entry"),
+        };
+        sh.get("content::overview::items")
             .spawn_scene(("widgets", "button"), |sh| {
-                let path = entry.path();
-                sh.on_pressed({
-                    let path = path.clone();
-                    move |mut commands: Commands| {
-                        let path = path.clone();
-                        commands
-                            .react()
-                            .broadcast(MenuCommand::SetPreview(Some(path)));
-                    }
-                });
+                sh.insert(entry_type).on_pressed(broadcast_fn(menu_command));
                 let label = path.to_string_lossy();
                 sh.get("text")
                     .update_text(format!("[{}] {label}", entry_type.get_char()));
             });
     }
-    sh.get("preview").update_on(
+
+    sh.get("content::preview").update_on(
         broadcast::<MenuCommand>(),
         |id: TargetId, mut commands: Commands, broadcast_event: BroadcastEvent<MenuCommand>| {
             if let Ok(MenuCommand::SetPreview(path)) = broadcast_event.try_read() {
@@ -215,6 +247,7 @@ fn update_tab_content_on_broadcast(
     broadcast_event: BroadcastEvent<MenuCommand>,
     mut commands: Commands,
     mut scene_builder: SceneBuilder,
+    mut current_directory: ResMut<CurrentDirectory>,
 ) {
     let Ok(event) = broadcast_event.try_read() else {
         return;
@@ -222,6 +255,25 @@ fn update_tab_content_on_broadcast(
     match event {
         MenuCommand::Refresh => {
             commands.set_state(ViewState::Reset);
+        }
+        MenuCommand::SetDirectory(path) => {
+            // TODO: move to a "main-tab-command"?
+            let path: PathBuf = if !path.is_absolute()
+                && let Some(cwd) = current_directory.take()
+            {
+                cwd.join(path)
+            } else {
+                path.clone()
+            }
+            .canonicalize()
+            .expect("path cannot be canonicalized");
+            info!("SetDirectory {path:?}");
+            match env::set_current_dir(&path) {
+                Ok(_) => {
+                    *current_directory = CurrentDirectory::from_path(path);
+                }
+                Err(e) => warn!("SetDirectory({path:?}) ERROR: {e:?}"),
+            };
         }
         MenuCommand::SetPreview(_) => {
             // TODO: move to a "main-tab-command"? anyway, not handled here
@@ -262,9 +314,11 @@ fn setup_ui(
     commands
         .ui_root()
         .spawn_scene(("main", "root"), &mut scene_builder, |sh| {
-            let load_time = first_load_time.get_or_insert(time.elapsed());
-            let load_time_label = format!("Loaded in {} seconds", load_time.as_secs_f32());
-            sh.get("label").update_text(load_time_label);
+            {
+                let load_time = first_load_time.get_or_insert(time.elapsed());
+                let load_time_label = format!("Loaded in {} seconds", load_time.as_secs_f32());
+                sh.get("title").update_text(load_time_label);
+            }
 
             sh.get("refresh").on_pressed(|mut commands: Commands| {
                 commands.react().broadcast(MenuCommand::Refresh);
@@ -282,10 +336,19 @@ fn setup_ui(
 }
 
 pub fn root_plugin(app: &mut App) {
-    app.add_plugins((DefaultPlugins, CobwebUiPlugin))
+    app.insert_resource(CurrentDirectory::from(env::current_dir().ok()))
+        .add_plugins((DefaultPlugins, CobwebUiPlugin))
         .register_component_type::<Marker>()
         .add_plugins((loading_screen_plugin, view_state_plugin))
         .load("manifest.cob")
+        .add_systems(
+            FixedUpdate,
+            (
+                broadcast_fn(CurrentDirectoryChanged),
+                broadcast_fn(MenuCommand::ChangeTab(MenuTab::Main)).chain(),
+            )
+                .run_if(resource_changed::<CurrentDirectory>),
+        )
         .add_systems(OnEnter(ViewState::Stable), setup_ui)
         .add_systems(OnEnter(ViewState::Reset), |mut commands: Commands| {
             debug!("despawn ui");

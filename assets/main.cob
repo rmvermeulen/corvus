@@ -56,7 +56,7 @@ colors as colors
     }
     Splat<Padding>(8px)
     BackgroundColor($widgets::colors::primary)
-    "label"
+    "title"
         Margin{ left:auto right:auto }
         TextLineColor($widgets::colors::tertiary)
         TextLine{text:""}
@@ -97,26 +97,47 @@ colors as colors
 
 "main_tab"
     BackgroundColor(#AAAAAA)
-    FlexNode{flex_grow:1}
+    FlexNode{
+        flex_grow:1
+        flex_direction:Column
+        justify_self_cross:Stretch
+        justify_main:FlexStart
+    }
     Splat<Padding>(8px)
-    "overview"
-        BackgroundColor(#555555)
-        FlexNode{flex_grow:1 flex_direction:Column}
-        "text"
-            BackgroundColor(#444444)
-            TextLine{text:"Overview"}
-        "items"
-            BackgroundColor(#666666)
-            FlexNode{flex_direction:Column row_gap:8px}
-    "preview"
-        BackgroundColor(#558802)
-        Splat<Padding>(8px)
-        FlexNode{
-            min_width:      100%
-            height:         100%
-            flex_grow:      2
-            flex_direction: Column
-        }
+    "header"
+        BackgroundColor(#000000)
+        FlexNode{flex_direction:Row}
+        "directory"
+            Splat<Padding>(4px)
+            BackgroundColor(#FFFFFF)
+            "text"
+                Margin{left:8px right:8px top:auto bottom:auto}
+                TextLineColor(#000000)
+                TextLine{text:"cwd"}
+    "content"
+        FlexNode{flex_grow:1 column_gap:2px}
+        "overview"
+            BackgroundColor(#555555)
+            FlexNode{flex_grow:1 flex_direction:Column}
+            "text"
+                BackgroundColor(#444444)
+                TextLine{text:"Overview"}
+            "items"
+                BackgroundColor(#666666)
+                FlexNode{flex_direction:Column row_gap:8px}
+                // TODO: navigate directories
+        "preview"
+            // TODO: vertical scroll
+            // TODO: horizontal scroll
+            BackgroundColor(#558802)
+            Splat<Padding>(8px)
+            FlexNode{
+                // min_width:      100%
+                height:         100%
+                // flex_grow:      2
+                flex_direction: Column
+                clipping:       ClipXY
+            }
 
 "settings_tab"
     FlexNode{flex_grow:1 justify_main:Center}
