@@ -1692,6 +1692,7 @@ dependencies = [
  "bevy",
  "bevy_cobweb",
  "bevy_cobweb_ui",
+ "cfg-if",
  "itertools 0.14.0",
  "log",
 ]

@@ -1,9 +1,13 @@
+use std::fs::{FileType, read_to_string};
+use std::path::PathBuf;
 use std::time::Duration;
 
+use bevy::color::palettes::css;
 use bevy::prelude::*;
 use bevy_cobweb::prelude::*;
 use bevy_cobweb_ui::prelude::*;
 use bevy_cobweb_ui::sickle::UpdateTextExt;
+use cfg_if::cfg_if;
 use itertools::Itertools;
 
 use crate::loading_screen::loading_screen_plugin;
@@ -48,6 +52,7 @@ enum MenuTab {
 
 enum MenuCommand {
     Refresh,
+    SetPreview(Option<PathBuf>),
     ChangeTab(MenuTab),
 }
 
@@ -64,32 +69,97 @@ fn setup_tab_buttons<'a>(
     DONE
 }
 
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum EntryType {
+    Directory,
+    File,
+    Symlink,
+    Unknown,
+}
+
+impl EntryType {
+    fn get_char(&self) -> char {
+        cfg_if! {
+            if #[cfg(feature = "emoji")] {
+                match self {
+                    Self::Directory => '📁',
+                    Self::File => '📄',
+                    Self::Symlink => '🔗',
+                    Self::Unknown => '❓',
+                }
+            } else {
+                match self {
+                    Self::Directory => 'd',
+                    Self::File => 'f',
+                    Self::Symlink => 's',
+                    Self::Unknown => 'u',
+                }
+            }
+        }
+    }
+}
+
+impl From<FileType> for EntryType {
+    fn from(ft: FileType) -> Self {
+        if ft.is_dir() {
+            Self::Directory
+        } else if ft.is_file() {
+            Self::File
+        } else if ft.is_symlink() {
+            Self::Symlink
+        } else {
+            Self::Unknown
+        }
+    }
+}
+
 fn init_main_tab<'a>(sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
-    let mut sh = sh.get("overview::items");
-    for (desc, entry) in std::fs::read_dir(".")
+    for (entry_type, entry) in std::fs::read_dir(".")
         .unwrap()
         .filter_map(Result::ok)
         .map(|entry| {
             let ft = entry.file_type().unwrap();
-            let desc = if ft.is_dir() {
-                "dir"
-            } else if ft.is_file() {
-                "file"
-            } else if ft.is_symlink() {
-                "symlink"
-            } else {
-                "unknown"
-            };
-            (desc, entry)
+            (EntryType::from(ft), entry)
         })
         .sorted_by_key(|pair| pair.0)
     {
-        sh.spawn_scene(("widgets", "button"), |sh| {
-            let path = entry.path();
-            let path = path.to_string_lossy();
-            sh.get("text").update_text(format!("{desc} -> {path}"));
-        });
+        sh.get("overview::items")
+            .spawn_scene(("widgets", "button"), |sh| {
+                let path = entry.path();
+                sh.on_pressed({
+                    let path = path.clone();
+                    move |mut commands: Commands| {
+                        let path = path.clone();
+                        commands
+                            .react()
+                            .broadcast(MenuCommand::SetPreview(Some(path)));
+                    }
+                });
+                let label = path.to_string_lossy();
+                sh.get("text")
+                    .update_text(format!("[{}] {label}", entry_type.get_char()));
+            });
     }
+    sh.get("preview").update_on(
+        broadcast::<MenuCommand>(),
+        |id: TargetId, mut commands: Commands, broadcast_event: BroadcastEvent<MenuCommand>| {
+            if let Ok(MenuCommand::SetPreview(path)) = broadcast_event.try_read() {
+                commands.entity(*id).despawn_related::<Children>();
+                if let Some(path) = path {
+                    match read_to_string(path) {
+                        Ok(text) => {
+                            commands.ui_builder(*id).spawn(Text::new(text));
+                        }
+                        Err(error) => {
+                            commands
+                                .ui_builder(*id)
+                                .spawn((Text::new(format!("{error}")), TextColor::from(css::RED)));
+                        }
+                    }
+                }
+            }
+        },
+    );
 }
 
 fn init_settings_tab<'a>(sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
@@ -152,6 +222,9 @@ fn update_tab_content_on_broadcast(
     match event {
         MenuCommand::Refresh => {
             commands.set_state(ViewState::Reset);
+        }
+        MenuCommand::SetPreview(_) => {
+            // TODO: move to a "main-tab-command"? anyway, not handled here
         }
         MenuCommand::ChangeTab(tab) => {
             let id = *id;
