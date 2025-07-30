@@ -11,13 +11,10 @@ colors as colors
         height:100vh
         flex_direction:Column
     }
-    Splat<Padding>(8px)
+    Splat<Padding>(4px)
     BackgroundColor($widgets::colors::primary)
-    "title"
-        Margin{ left:auto right:auto }
-        TextLineColor($widgets::colors::tertiary)
-        TextLine{text:""}
-    "refresh"
+    "refresh_button"
+        FlexNode{left:4px top:4px}
         +widgets::button{
             "text"
                 TextLine{text:"Refresh"}
@@ -47,10 +44,9 @@ colors as colors
         }
 
     "footer_content"
-        FlexNode{justify_main:Center}
         "text"
-            TextLine{ text: "I don't change" }
             TextLineColor(Hsla{hue:0 saturation:0.00 lightness:0.85 alpha:1.0})
+            TextLine{}
 
 "main_tab"
     BackgroundColor(#AAAAAA)
@@ -59,12 +55,14 @@ colors as colors
         flex_direction:Column
         justify_self_cross:Stretch
         justify_main:FlexStart
+        row_gap:4px
     }
     Splat<Padding>(8px)
     "header"
-        BackgroundColor(#000000)
+        BackgroundColor(#AAAAAA)
         FlexNode{flex_direction:Row}
         "location"
+            FlexNode{column_gap:4px}
             Splat<Padding>(4px)
             BackgroundColor(#FFFFFF)
             "back_button"
@@ -87,14 +85,9 @@ colors as colors
     "content"
         FlexNode{flex_grow:1 column_gap:2px}
         "overview"
-            BackgroundColor(#555555)
             FlexNode{flex_grow:1 flex_direction:Column}
-            "text"
-                BackgroundColor(#444444)
-                TextLine{text:"Overview"}
             "items"
-                BackgroundColor(#666666)
-                FlexNode{flex_direction:Column row_gap:8px}
+                FlexNode{flex_direction:Column row_gap:4px}
                 // TODO: navigate directories
         "preview"
             // TODO: vertical scroll
@@ -133,15 +126,5 @@ colors as colors
                         "shim"
                             // NOTE: items added from code
                 }
-        "foo_bar"
-            +widgets::select_list{
-                "value"
-                    TextLine{text:"Foobar"}
-                "options"
-                    "view"
-                        "shim"
-                            +list_items{}
-
-            }
 
 
