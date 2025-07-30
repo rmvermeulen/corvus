@@ -4,49 +4,6 @@ colors as colors
 
 #defs
 
-+list_items = \
-    "text1"
-        +widgets::list_option{
-            TextLine{text:"lmao1"}
-        }
-    "text2"
-        +widgets::list_option{
-            TextLine{text:"lmao2"}
-        }
-    "text3"
-        +widgets::list_option{
-            TextLine{text:"lmao3"}
-        }
-    "text4"
-        +widgets::list_option{
-            TextLine{text:"lmao4"}
-        }
-    "text5"
-        +widgets::list_option{
-            TextLine{text:"lmao5"}
-        }
-    "text6"
-        +widgets::list_option{
-            TextLine{text:"lmao6"}
-        }
-    "text7"
-        +widgets::list_option{
-            TextLine{text:"lmao7"}
-        }
-    "text8"
-        +widgets::list_option{
-            TextLine{text:"lmao8"}
-        }
-    "text9"
-        +widgets::list_option{
-            TextLine{text:"lmao9"}
-        }
-    "text10"
-        +widgets::list_option{
-            TextLine{text:"lmao10"}
-        }
-\
-
 #scenes
 "root"
     FlexNode{
