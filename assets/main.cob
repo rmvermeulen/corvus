@@ -64,11 +64,24 @@ colors as colors
     "header"
         BackgroundColor(#000000)
         FlexNode{flex_direction:Row}
-        "directory"
+        "location"
             Splat<Padding>(4px)
             BackgroundColor(#FFFFFF)
+            "back_button"
+                HeaderButton::Back
+                +widgets::button{
+                    "text"
+                        TextLine{text:"[B]"}
+                }
+            "reload_button"
+                HeaderButton::Reload
+                +widgets::button{
+                    "text"
+                        TextLine{text:"[R]"}
+                }
             "text"
                 Margin{left:8px right:8px top:auto bottom:auto}
+                BackgroundColor($colors::text_selected)
                 TextLineColor(#000000)
                 TextLine{text:"cwd"}
     "content"

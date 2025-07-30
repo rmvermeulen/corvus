@@ -16,7 +16,8 @@ $tab_selected_idle  = $tw::VIOLET_400
 $tab_selected_hover = $tw::VIOLET_600
 $tab_selected_press = $tw::VIOLET_800
 
-$text_idle  = $tw::BLUE_600
+$text_idle      = $tw::BLUE_600
+$text_selected  = #888FFF
         
 $bg_menu = $tw::AMBER_400
 

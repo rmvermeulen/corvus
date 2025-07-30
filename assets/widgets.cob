@@ -124,3 +124,5 @@ colors as colors
 "list_option"
     +list_option{}
 
+"scroll_panel"
+    +scroll{}

@@ -1,4 +1,5 @@
 use std::env;
+use std::fmt::Display;
 use std::fs::{FileType, read_to_string};
 use std::path::PathBuf;
 use std::time::Duration;
@@ -11,6 +12,7 @@ use bevy_cobweb_ui::sickle::UpdateTextExt;
 use cfg_if::cfg_if;
 use derive_more::From;
 use itertools::Itertools;
+use smol_str::SmolStr;
 
 use crate::loading_screen::loading_screen_plugin;
 use crate::view_state::{ViewState, view_state_plugin};
@@ -40,9 +42,24 @@ impl<'w, 's> ChangeTabExt for Commands<'w, 's> {
 #[derive(Debug, Deref, DerefMut, From, Resource)]
 pub struct CurrentDirectory(Option<PathBuf>);
 
-impl CurrentDirectory {
-    fn from_path<P: Into<PathBuf>>(path: P) -> Self {
-        Self(Some(path.into()))
+#[derive(Debug, Default, Deref, DerefMut, From, Resource)]
+pub struct LocationHistory(Vec<PathBuf>);
+
+impl TryFrom<PathBuf> for CurrentDirectory {
+    type Error = std::io::Error;
+    fn try_from(path: PathBuf) -> std::result::Result<Self, Self::Error> {
+        path.canonicalize().map(Some).map(Self)
+    }
+}
+
+impl Display for CurrentDirectory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let text = self
+            .as_ref()
+            .map(|path| path.to_string_lossy().to_string())
+            .unwrap_or_else(|| "[invalid directory]".to_string());
+
+        write!(f, "{text}")
     }
 }
 
@@ -54,6 +71,14 @@ enum Marker {
     Option,
     Input,
     Button,
+}
+
+#[derive(Clone, Component, Copy, Debug, Default, PartialEq, Reflect)]
+#[require(Marker::Button)]
+enum HeaderButton {
+    #[default]
+    Back,
+    Reload,
 }
 
 #[derive(Clone, Component, Copy, Debug, PartialEq)]
@@ -72,6 +97,9 @@ enum MenuCommand {
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct CurrentDirectoryChanged;
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ReloadCurrentDirectory;
 
 fn setup_tab_buttons<'a>(
     sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>,
@@ -136,17 +164,33 @@ pub fn broadcast_fn<T: Clone + Send + Sync + 'static>(value: T) -> impl Fn(Comma
     }
 }
 
-fn init_main_tab<'a>(sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
-    sh.get("header::directory::text").update_on(
+fn setup_header<'a>(header: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
+    assert!(
+        header
+            .path()
+            .path
+            .get()
+            .ends_with(&[SmolStr::new("header")])
+    );
+    // reload: ['🔄', '🔃', '🔁'],
+
+    #[cfg(feature = "emoji")]
+    header.get("location::reload_button").update_text();
+    header
+        .get("location::reload_button")
+        .update(|_: TargetId, mut commands: Commands| {
+            commands.react().broadcast(ReloadCurrentDirectory);
+        });
+    header.get("location::text").update_on(
         broadcast::<CurrentDirectoryChanged>(),
         |id: TargetId, mut text_editor: TextEditor, current_directory: Res<CurrentDirectory>| {
-            let text = current_directory
-                .clone()
-                .map(|path| path.to_string_lossy().to_string())
-                .unwrap_or_else(|| "[invalid directory]".to_string());
-            write_text!(text_editor, *id, "{text}");
+            write_text!(text_editor, *id, "{}", *current_directory);
         },
     );
+}
+
+fn init_main_tab<'a>(sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
+    setup_header(&mut sh.get("header"));
 
     for (entry_type, entry) in std::fs::read_dir(".")
         .unwrap()
@@ -171,6 +215,11 @@ fn init_main_tab<'a>(sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
                     .update_text(format!("[{}] {label}", entry_type.get_char()));
             });
     }
+    sh.get("content::overview::text").update(
+        |id: TargetId, mut text_editor: TextEditor, current_directory: Res<CurrentDirectory>| {
+            write_text!(text_editor, *id, "{}", *current_directory);
+        },
+    );
 
     sh.get("content::preview").update_on(
         broadcast::<MenuCommand>(),
@@ -248,6 +297,7 @@ fn update_tab_content_on_broadcast(
     mut commands: Commands,
     mut scene_builder: SceneBuilder,
     mut current_directory: ResMut<CurrentDirectory>,
+    mut location_history: ResMut<LocationHistory>,
 ) {
     let Ok(event) = broadcast_event.try_read() else {
         return;
@@ -270,7 +320,9 @@ fn update_tab_content_on_broadcast(
             info!("SetDirectory {path:?}");
             match env::set_current_dir(&path) {
                 Ok(_) => {
-                    *current_directory = CurrentDirectory::from_path(path);
+                    if let Some(previous) = current_directory.replace(path) {
+                        location_history.push(previous);
+                    }
                 }
                 Err(e) => warn!("SetDirectory({path:?}) ERROR: {e:?}"),
             };
@@ -337,8 +389,10 @@ fn setup_ui(
 
 pub fn root_plugin(app: &mut App) {
     app.insert_resource(CurrentDirectory::from(env::current_dir().ok()))
+        .init_resource::<LocationHistory>()
         .add_plugins((DefaultPlugins, CobwebUiPlugin))
         .register_component_type::<Marker>()
+        .register_component_type::<HeaderButton>()
         .add_plugins((loading_screen_plugin, view_state_plugin))
         .load("manifest.cob")
         .add_systems(
