@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use bevy::color::palettes::css;
 use bevy::prelude::*;
+use bevy::ui::RelativeCursorPosition;
 use bevy_cobweb::prelude::*;
 use bevy_cobweb_ui::prelude::scene_traits::SceneNodeBuilderOuter;
 use bevy_cobweb_ui::prelude::*;
@@ -15,7 +16,7 @@ use derive_more::From;
 use itertools::Itertools;
 
 use crate::loading_screen::loading_screen_plugin;
-use crate::ui_events::LocationSelected;
+use crate::ui_events::{CurrentDirectoryChanged, LocationSelectionUpdated};
 use crate::view_state::{ViewState, view_state_plugin};
 
 pub type CobwebLoadState = bevy_cobweb_ui::prelude::LoadState;
@@ -109,12 +110,36 @@ enum AppCommand {
 }
 
 pub mod ui_events {
+    use bevy::utils::default;
+    use log::info;
 
     #[derive(Clone, Copy, Debug, Default)]
     pub struct CurrentDirectoryChanged;
 
-    #[derive(Clone, Copy, Debug, Default)]
-    pub struct LocationSelected;
+    #[derive(Clone, Debug, Default)]
+    pub struct LocationSelectionUpdated {
+        pub before: String,
+        pub selected: String,
+        pub after: String,
+    }
+
+    impl LocationSelectionUpdated {
+        pub fn new_no_selection(text: String) -> Self {
+            info!("new_no_selection({text})");
+            Self {
+                before: text,
+                selected: default(),
+                after: default(),
+            }
+        }
+        pub fn new(before: String, selected: String, after: String) -> Self {
+            Self {
+                before,
+                selected,
+                after,
+            }
+        }
+    }
 }
 
 // TODO: implement text selection (at least in the address bar)
@@ -182,6 +207,116 @@ pub fn broadcast_fn<T: Clone + Send + Sync + 'static>(value: T) -> impl Fn(Comma
     }
 }
 
+fn setup_location_text<'a>(location: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
+    assert!(location.path_ends_with(&["location"]));
+
+    fn split_string(input: &str, index: usize) -> (String, String, String) {
+        let mut chars = input.chars();
+        let before: String = chars.by_ref().take(index).collect();
+        let selected: String = chars.by_ref().take(1).collect();
+        let after: String = chars.by_ref().collect();
+        assert_eq!(before.len() + selected.len() + after.len(), input.len());
+        (before, selected, after)
+    }
+
+    location
+        .insert(RelativeCursorPosition::default())
+        .observe(
+            |trigger: Trigger<Pointer<DragStart>>,
+             relcurpos: Query<&RelativeCursorPosition, With<Node>>,
+             current_directory: Res<CurrentDirectory>,
+             mut commands: Commands| {
+                debug!("trigger DragStart");
+                if let Ok(rcp) = relcurpos.get(trigger.target())
+                    && let Some(Vec2 { x, .. }) = rcp.normalized
+                {
+                    let cwd = current_directory.to_string();
+                    let index = (cwd.len() as f32 * x).floor() as usize;
+                    let (before, selected, after) = split_string(&cwd, index);
+                    commands
+                        .react()
+                        .broadcast(LocationSelectionUpdated::new(before, selected, after));
+                }
+            },
+        )
+        .observe(
+            |trigger: Trigger<Pointer<Drag>>,
+             relcurpos: Query<&RelativeCursorPosition, With<Node>>,
+             current_directory: Res<CurrentDirectory>,
+             mut commands: Commands| {
+                trace!("trigger Drag");
+                if let Ok(rcp) = relcurpos.get(trigger.target())
+                    && let Some(Vec2 { x, .. }) = rcp.normalized
+                {
+                    let cwd = current_directory.to_string();
+                    let index = (cwd.len() as f32 * x).floor() as usize;
+                    let (before, selected, after) = split_string(&cwd, index);
+                    commands
+                        .react()
+                        .broadcast(LocationSelectionUpdated::new(before, selected, after));
+                }
+            },
+        )
+        .observe(
+            |trigger: Trigger<Pointer<DragEnd>>,
+             relcurpos: Query<&RelativeCursorPosition, With<Node>>,
+             current_directory: Res<CurrentDirectory>,
+             mut commands: Commands| {
+                info!("trigger DragEnd");
+                if let Ok(rcp) = relcurpos.get(trigger.target())
+                    && let Some(Vec2 { x, .. }) = rcp.normalized
+                {
+                    let cwd = current_directory.to_string();
+                    let index = (cwd.len() as f32 * x).floor() as usize;
+                    let (before, selected, after) = split_string(&cwd, index);
+                    commands
+                        .react()
+                        .broadcast(LocationSelectionUpdated::new(before, selected, after));
+                }
+            },
+        )
+        .update_on(
+            broadcast::<ui_events::CurrentDirectoryChanged>(),
+            |_: TargetId, mut commands: Commands, current_directory: Res<CurrentDirectory>| {
+                let cwd = current_directory.to_string();
+                info!("clear selection, set text: {cwd}");
+                commands
+                    .react()
+                    .broadcast(LocationSelectionUpdated::new_no_selection(cwd));
+            },
+        );
+    location.get("before").update_on(
+        broadcast::<LocationSelectionUpdated>(),
+        |id: TargetId,
+         bce: BroadcastEvent<LocationSelectionUpdated>,
+         mut text_editor: TextEditor| {
+            if let Ok(ev) = bce.try_read() {
+                write_text!(text_editor, *id, "{}", ev.before);
+            }
+        },
+    );
+    location.get("selected").update_on(
+        broadcast::<LocationSelectionUpdated>(),
+        |id: TargetId,
+         bce: BroadcastEvent<LocationSelectionUpdated>,
+         mut text_editor: TextEditor| {
+            if let Ok(ev) = bce.try_read() {
+                write_text!(text_editor, *id, "{}", ev.selected);
+            }
+        },
+    );
+    location.get("after").update_on(
+        broadcast::<LocationSelectionUpdated>(),
+        |id: TargetId,
+         bce: BroadcastEvent<LocationSelectionUpdated>,
+         mut text_editor: TextEditor| {
+            if let Ok(ev) = bce.try_read() {
+                write_text!(text_editor, *id, "{}", ev.after);
+            }
+        },
+    );
+}
+
 fn setup_navigation<'a>(navigation: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
     assert!(navigation.path_ends_with(&["navigation"]));
 
@@ -213,33 +348,7 @@ fn setup_navigation<'a>(navigation: &mut SceneHandle<'a, UiBuilder<'a, Entity>>)
         #[cfg(feature = "emoji")]
         button.update_text(config.2);
     }
-
-    // TODO: make location editable
-    let mut location = navigation.get("location");
-    location
-        .on_pressed(broadcast_fn(ui_events::LocationSelected))
-        .update_on(
-            broadcast::<ui_events::LocationSelected>(),
-            |id: TargetId, mut commands: Commands, mut pseudo_states: Query<&mut PseudoStates>| {
-                info!("on LocationSelected {}", *id);
-                if let Ok(mut states) = pseudo_states.get_mut(*id) {
-                    info!("got states: {states:?}");
-                    if states.has(&PseudoState::Selected) {
-                        states.remove(PseudoState::Selected);
-                    } else {
-                        states.add(PseudoState::Selected);
-                    }
-                } else {
-                    commands.entity(*id).insert(PseudoStates::new());
-                }
-            },
-        );
-    location.get("text").update_on(
-        broadcast::<ui_events::CurrentDirectoryChanged>(),
-        |id: TargetId, mut text_editor: TextEditor, current_directory: Res<CurrentDirectory>| {
-            write_text!(text_editor, *id, "{}", *current_directory);
-        },
-    );
+    setup_location_text(&mut navigation.get("location"));
 }
 
 fn setup_header<'a>(header: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
@@ -492,7 +601,10 @@ fn setup_ui(
                     update_explorer_on_explorer_command,
                 );
 
+            // show the main tab
             sh.react().broadcast(AppCommand::ChangeTab(AppTab::Main));
+            // show the current directory
+            sh.react().broadcast(CurrentDirectoryChanged);
 
             sh.despawn_on_broadcast::<DespawnUi>();
         });
@@ -502,10 +614,7 @@ pub fn root_plugin(app: &mut App) {
     app.insert_resource(CurrentDirectory::from(
         env::current_dir().unwrap_or_default(),
     ))
-    .init_resource::<LocationHistory>()
     .add_plugins((DefaultPlugins, CobwebUiPlugin))
-    .register_component_type::<Marker>()
-    .register_component_type::<NavigationButton>()
     .add_plugins((loading_screen_plugin, view_state_plugin))
     .load("manifest.cob")
     .add_systems(
@@ -520,5 +629,8 @@ pub fn root_plugin(app: &mut App) {
     .add_systems(OnEnter(ViewState::Reset), |mut commands: Commands| {
         debug!("despawn ui");
         commands.react().broadcast(DespawnUi);
-    });
+    })
+    .init_resource::<LocationHistory>()
+    .register_component_type::<Marker>()
+    .register_component_type::<NavigationButton>();
 }

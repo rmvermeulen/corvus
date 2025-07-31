@@ -92,19 +92,22 @@ colors as colors
             "location"
                 ControlRoot
                 Margin{left:8px right:8px top:auto bottom:auto}
-                "text"
+                Picking::Sink
+                "before"
                     ControlMember
-                    Multi<Animated<BackgroundColor>>[
-                        {
-                            idle: $colors::white
-                        },
-                        {
-                            state: [Selected]
-                            idle: $colors::text_selected
-                        }
-                    ]
+                    BackgroundColor($colors::white)
                     TextLineColor(#000000)
-                    TextLine{text:"cwd"}
+                    TextLine{}
+                "selected"
+                    ControlMember
+                    BackgroundColor($colors::text_selected)
+                    TextLineColor(#000000)
+                    TextLine{}
+                "after"
+                    ControlMember
+                    BackgroundColor($colors::white)
+                    TextLineColor(#000000)
+                    TextLine{}
     "content"
         FlexNode{flex_grow:1 column_gap:2px}
         "overview"
