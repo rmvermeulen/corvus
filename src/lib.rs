@@ -7,6 +7,7 @@ use std::time::Duration;
 use bevy::color::palettes::css;
 use bevy::prelude::*;
 use bevy_cobweb::prelude::*;
+use bevy_cobweb_ui::prelude::scene_traits::SceneNodeBuilderOuter;
 use bevy_cobweb_ui::prelude::*;
 use bevy_cobweb_ui::sickle::UpdateTextExt;
 use cfg_if::cfg_if;
@@ -176,13 +177,7 @@ pub fn broadcast_fn<T: Clone + Send + Sync + 'static>(value: T) -> impl Fn(Comma
 }
 
 fn setup_header<'a>(header: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
-    assert!(
-        header
-            .path()
-            .path
-            .get()
-            .ends_with(&[SmolStr::new("header")])
-    );
+    assert!(header.path_ends_with(&["header"]));
 
     let mut reload_button = header.get("location::reload_button");
     #[cfg(feature = "emoji")]
@@ -376,19 +371,25 @@ fn update_tab_content_on_broadcast(
 
 struct DespawnUi;
 
+pub trait PathChecksExt {
+    fn path_vec(&self) -> Vec<&str>;
+    fn path_ends_with(&self, needle: &[&str]) -> bool {
+        self.path_vec().ends_with(needle)
+    }
+}
+
+impl<'a, B: SceneNodeBuilderOuter<'a>> PathChecksExt for SceneHandle<'a, B> {
+    fn path_vec(&self) -> Vec<&str> {
+        self.path().path.iter().collect_vec()
+    }
+}
+
 fn setup_footer<'a>(
     footer: &mut SceneHandle<'a, UiBuilder<'a, Entity>>,
     first_load_time: &mut Option<Duration>,
     time: &Time,
 ) {
-    assert!(
-        footer
-            .path()
-            .path
-            .iter()
-            .collect_vec()
-            .ends_with(&["footer"])
-    );
+    assert!(footer.path_ends_with(&["footer"]));
     footer.get("text").update_text({
         let load_time = first_load_time.get_or_insert(time.elapsed());
         format!("Loaded in {} seconds", load_time.as_secs_f32())
