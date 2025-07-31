@@ -217,6 +217,7 @@ fn setup_navigation<'a>(navigation: &mut SceneHandle<'a, UiBuilder<'a, Entity>>)
         button.update_text(config.2);
     }
 
+    // TODO: make location editable
     let mut location = navigation.get("location");
     location.update_on(
         broadcast::<ui_events::CurrentDirectoryChanged>(),
