@@ -538,6 +538,8 @@ fn update_tab_content_on_app_command(
                         &mut scene_builder,
                         init_main_tab,
                     );
+                    // show the current directory
+                    commands.react().broadcast(CurrentDirectoryChanged);
                 }
                 AppTab::Settings => {
                     commands.ui_builder(id).spawn_scene(
@@ -603,8 +605,6 @@ fn setup_ui(
 
             // show the main tab
             sh.react().broadcast(AppCommand::ChangeTab(AppTab::Main));
-            // show the current directory
-            sh.react().broadcast(CurrentDirectoryChanged);
 
             sh.despawn_on_broadcast::<DespawnUi>();
         });
