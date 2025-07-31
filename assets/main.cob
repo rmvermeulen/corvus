@@ -61,23 +61,35 @@ colors as colors
     "header"
         BackgroundColor(#AAAAAA)
         FlexNode{flex_direction:Row}
-        "location"
+        "navigation"
             FlexNode{column_gap:4px}
             Splat<Padding>(4px)
             BackgroundColor(#FFFFFF)
             "back_button"
-                HeaderButton::Back
+                NavigationButton::Back
                 +widgets::button{
                     "text"
                         TextLine{text:"[B]"}
                 }
+            "up_button"
+                NavigationButton::Up
+                +widgets::button{
+                    "text"
+                        TextLine{text:"[U]"}
+                }
+            "next_button"
+                NavigationButton::Next
+                +widgets::button{
+                    "text"
+                        TextLine{text:"[N]"}
+                }
             "reload_button"
-                HeaderButton::Reload
+                NavigationButton::Reload
                 +widgets::button{
                     "text"
                         TextLine{text:"[R]"}
                 }
-            "text"
+            "location"
                 Margin{left:8px right:8px top:auto bottom:auto}
                 BackgroundColor($colors::text_selected)
                 TextLineColor(#000000)

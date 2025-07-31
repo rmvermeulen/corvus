@@ -1,7 +1,7 @@
 use std::env;
 use std::fmt::Display;
 use std::fs::{FileType, read_to_string};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use bevy::color::palettes::css;
@@ -13,12 +13,10 @@ use bevy_cobweb_ui::sickle::UpdateTextExt;
 use cfg_if::cfg_if;
 use derive_more::From;
 use itertools::Itertools;
-use smol_str::SmolStr;
 
 use crate::loading_screen::loading_screen_plugin;
 use crate::view_state::{ViewState, view_state_plugin};
 
-/// *not* to be confused with [bevy::prelude::LoadState]
 pub type CobwebLoadState = bevy_cobweb_ui::prelude::LoadState;
 
 pub mod loading_screen;
@@ -43,8 +41,11 @@ impl<'w, 's> ChangeTabExt for Commands<'w, 's> {
 #[derive(Debug, Deref, DerefMut, Resource)]
 pub struct CurrentDirectory(PathBuf);
 
-#[derive(Debug, Default, Deref, DerefMut, From, Resource)]
-pub struct LocationHistory(Vec<PathBuf>);
+#[derive(Debug, Default, From, Resource)]
+pub struct LocationHistory {
+    back: Vec<PathBuf>,
+    next: Vec<PathBuf>,
+}
 
 impl From<PathBuf> for CurrentDirectory {
     fn from(mut path: PathBuf) -> Self {
@@ -74,9 +75,11 @@ enum Marker {
 
 #[derive(Clone, Component, Copy, Debug, Default, PartialEq, Reflect)]
 #[require(Marker::Button)]
-enum HeaderButton {
+enum NavigationButton {
     #[default]
     Back,
+    Next,
+    Up,
     Reload,
 }
 
@@ -91,6 +94,9 @@ enum ExplorerCommand {
     Reload,
     SetPreview(Option<PathBuf>),
     SetDirectory(PathBuf),
+    HistoryBack,
+    HistoryNext,
+    GotoParent,
 }
 
 #[derive(Clone, Component, Debug, PartialEq)]
@@ -101,15 +107,18 @@ enum AppCommand {
     // SetDirectory(PathBuf),
 }
 
-#[derive(Clone, Copy, Debug, Default)]
-pub struct CurrentDirectoryChanged;
+pub mod ui_events {
 
-#[derive(Clone, Copy, Debug, Default)]
-pub struct ReloadCurrentDirectory;
+    #[derive(Clone, Copy, Debug, Default)]
+    pub struct CurrentDirectoryChanged;
 
-// TODO: implement GoBack
-#[derive(Clone, Copy, Debug, Default)]
-pub struct GoBack;
+    #[derive(Clone, Copy, Debug, Default)]
+    pub struct ReloadCurrentDirectory;
+
+    // TODO: implement GoBack
+    #[derive(Clone, Copy, Debug, Default)]
+    pub struct GoBack;
+}
 
 // TODO: implement text selection (at least in the address bar)
 
@@ -176,33 +185,54 @@ pub fn broadcast_fn<T: Clone + Send + Sync + 'static>(value: T) -> impl Fn(Comma
     }
 }
 
-fn setup_header<'a>(header: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
-    assert!(header.path_ends_with(&["header"]));
+fn setup_navigation<'a>(navigation: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
+    assert!(navigation.path_ends_with(&["navigation"]));
 
-    let mut reload_button = header.get("location::reload_button");
+    let configs = [
+        ("back_button", ExplorerCommand::HistoryBack),
+        ("next_button", ExplorerCommand::HistoryNext),
+        ("up_button", ExplorerCommand::GotoParent),
+        ("reload_button", ExplorerCommand::Reload),
+    ];
+
     #[cfg(feature = "emoji")]
-    reload_button.update_text("🔄");
-    reload_button.update(|_: TargetId, mut commands: Commands| {
-        commands.react().broadcast(ReloadCurrentDirectory);
-    });
+    let configs = configs
+        .into_iter()
+        .zip([
+            "🔙", // back
+            "🔜", // next
+            "🔜", // up
+            "🔄", // reload
+        ])
+        .map(|((a, b), c)| (a, b, c));
 
-    let mut back_button = header.get("location::back_button");
-    #[cfg(feature = "emoji")]
-    back_button.update_text("🔙");
-    back_button.update(|_: TargetId, mut commands: Commands| {
-        commands.react().broadcast(GoBack);
-    });
+    for config in configs {
+        let mut button = navigation.get(config.0);
+        button.on_pressed(move |mut commands: Commands| {
+            let command = config.1.clone();
+            info!("{command:?}");
+            commands.react().broadcast(command);
+        });
+        #[cfg(feature = "emoji")]
+        button.update_text(config.2);
+    }
 
-    let mut location_text = header.get("location::text");
-    location_text.update_on(
-        broadcast::<CurrentDirectoryChanged>(),
+    let mut location = navigation.get("location");
+    location.update_on(
+        broadcast::<ui_events::CurrentDirectoryChanged>(),
         |id: TargetId, mut text_editor: TextEditor, current_directory: Res<CurrentDirectory>| {
             write_text!(text_editor, *id, "{}", *current_directory);
         },
     );
 }
 
+fn setup_header<'a>(header: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
+    assert!(header.path_ends_with(&["header"]));
+    setup_navigation(&mut header.get("navigation"));
+}
+
 fn init_main_tab<'a>(sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
+    info!("init_main_tab ({:?})", env::current_dir());
     setup_header(&mut sh.get("header"));
 
     for (entry_type, entry) in std::fs::read_dir(".")
@@ -290,52 +320,74 @@ fn init_settings_tab<'a>(sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
 /// }
 ///```
 
-fn update_explorer_on_broadcast(
-    id: TargetId,
+fn update_explorer_on_explorer_command(
+    _: TargetId,
     broadcast_event: BroadcastEvent<ExplorerCommand>,
-    mut commands: Commands,
-    mut scene_builder: SceneBuilder,
     mut current_directory: ResMut<CurrentDirectory>,
     mut location_history: ResMut<LocationHistory>,
+    mut commands: Commands,
 ) {
     let Ok(event) = broadcast_event.try_read() else {
         return;
     };
+
+    fn set_directory(
+        path: &Path,
+        current_directory: &mut CurrentDirectory,
+        location_history: Option<&mut LocationHistory>,
+    ) {
+        let path: PathBuf = if !path.is_absolute() {
+            current_directory.join(path)
+        } else {
+            path.to_owned()
+        }
+        .canonicalize()
+        .expect("path cannot be canonicalized");
+        info!("SetDirectory {path:?}");
+        match env::set_current_dir(&path) {
+            Ok(_) => {
+                if let Some(history) = location_history {
+                    history.back.push(current_directory.clone());
+                }
+                **current_directory = path.clone();
+            }
+            Err(e) => warn!("SetDirectory({path:?}) ERROR: {e:?}"),
+        };
+    }
+
     match event {
         ExplorerCommand::Reload => {
-            // TODO: re-read_dir current location
+            commands.change_tab(AppTab::Main);
         }
         ExplorerCommand::SetDirectory(path) => {
-            // TODO: move to a "main-tab-command"?
-            let path: PathBuf = if !path.is_absolute() {
-                current_directory.join(path)
-            } else {
-                path.clone()
-            }
-            .canonicalize()
-            .expect("path cannot be canonicalized");
-            info!("SetDirectory {path:?}");
-            match env::set_current_dir(&path) {
-                Ok(_) => {
-                    location_history.push(current_directory.clone());
-                    **current_directory = path.clone();
-                }
-                Err(e) => warn!("SetDirectory({path:?}) ERROR: {e:?}"),
-            };
+            set_directory(path, &mut current_directory, Some(&mut location_history));
         }
-        ExplorerCommand::SetPreview(_) => {
-            // TODO: move to a "main-tab-command"? anyway, not handled here
+        ExplorerCommand::SetPreview(_) => {}
+        ExplorerCommand::HistoryBack => {
+            if let Some(prev) = location_history.back.pop() {
+                location_history.next.insert(0, current_directory.clone());
+                set_directory(&prev, &mut current_directory, None);
+            }
+        }
+        ExplorerCommand::HistoryNext => {
+            if let Some(next) = location_history.next.pop() {
+                location_history.back.push(current_directory.clone());
+                set_directory(&next, &mut current_directory, None);
+            }
+        }
+        ExplorerCommand::GotoParent => {
+            if let Some(parent) = current_directory.parent().map(Path::to_owned) {
+                set_directory(&parent, &mut current_directory, Some(&mut location_history));
+            };
         }
     }
 }
 
-fn update_tab_content_on_broadcast(
+fn update_tab_content_on_app_command(
     id: TargetId,
     broadcast_event: BroadcastEvent<AppCommand>,
     mut commands: Commands,
     mut scene_builder: SceneBuilder,
-    mut current_directory: ResMut<CurrentDirectory>,
-    mut location_history: ResMut<LocationHistory>,
 ) {
     let Ok(event) = broadcast_event.try_read() else {
         return;
@@ -413,8 +465,11 @@ fn setup_ui(
             sh.edit("tab_buttons", setup_tab_buttons);
 
             sh.get("tab_content")
-                .update_on(broadcast::<AppCommand>(), update_tab_content_on_broadcast)
-                .update_on(broadcast::<ExplorerCommand>(), update_explorer_on_broadcast);
+                .update_on(broadcast::<AppCommand>(), update_tab_content_on_app_command)
+                .update_on(
+                    broadcast::<ExplorerCommand>(),
+                    update_explorer_on_explorer_command,
+                );
 
             sh.react().broadcast(AppCommand::ChangeTab(AppTab::Main));
 
@@ -429,13 +484,13 @@ pub fn root_plugin(app: &mut App) {
     .init_resource::<LocationHistory>()
     .add_plugins((DefaultPlugins, CobwebUiPlugin))
     .register_component_type::<Marker>()
-    .register_component_type::<HeaderButton>()
+    .register_component_type::<NavigationButton>()
     .add_plugins((loading_screen_plugin, view_state_plugin))
     .load("manifest.cob")
     .add_systems(
         FixedUpdate,
         (
-            broadcast_fn(CurrentDirectoryChanged),
+            broadcast_fn(ui_events::CurrentDirectoryChanged),
             broadcast_fn(AppCommand::ChangeTab(AppTab::Main)).chain(),
         )
             .run_if(resource_changed::<CurrentDirectory>),

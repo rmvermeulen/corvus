@@ -33,10 +33,10 @@ Navigation:
 
 - [ ] editable address bar
 - [ ] go home button
-- [ ] reload button
-- [ ] navigation history
-  - [ ] go back button
-  - [ ] go forward button
+- [x] reload button
+- [x] navigation history
+  - [x] go back button
+  - [x] go forward button
 
 Bookmarks:
 
