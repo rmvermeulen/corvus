@@ -13,12 +13,6 @@ colors as colors
     }
     Splat<Padding>(4px)
     BackgroundColor($widgets::colors::primary)
-    "refresh_button"
-        FlexNode{left:4px top:4px}
-        +widgets::button{
-            "text"
-                TextLine{text:"Refresh"}
-        }
     //Actual tab menu
     "tab_buttons"
         +widgets::tab_menu{
@@ -43,11 +37,17 @@ colors as colors
             justify_self_cross:Stretch
         }
 
-    "footer_content"
+    "footer"
+        FlexNode{flex_direction:Row row_gap:4px}
+        "refresh_button"
+            +widgets::button{
+                -BrRadius
+                "text"
+                    TextLine{text:"Refresh"}
+            }
         "text"
             TextLineColor(Hsla{hue:0 saturation:0.00 lightness:0.85 alpha:1.0})
             TextLine{}
-
 "main_tab"
     BackgroundColor(#AAAAAA)
     FlexNode{

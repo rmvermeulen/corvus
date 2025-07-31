@@ -376,6 +376,28 @@ fn update_tab_content_on_broadcast(
 
 struct DespawnUi;
 
+fn setup_footer<'a>(
+    footer: &mut SceneHandle<'a, UiBuilder<'a, Entity>>,
+    first_load_time: &mut Option<Duration>,
+    time: &Time,
+) {
+    assert!(
+        footer
+            .path()
+            .path
+            .iter()
+            .collect_vec()
+            .ends_with(&["footer"])
+    );
+    footer.get("text").update_text({
+        let load_time = first_load_time.get_or_insert(time.elapsed());
+        format!("Loaded in {} seconds", load_time.as_secs_f32())
+    });
+    footer
+        .get("refresh_button")
+        .on_pressed(broadcast_fn(AppCommand::RebuildUi));
+}
+
 fn setup_ui(
     mut first_load_time: Local<Option<Duration>>,
     mut commands: Commands,
@@ -385,14 +407,7 @@ fn setup_ui(
     commands
         .ui_root()
         .spawn_scene(("main", "root"), &mut scene_builder, |sh| {
-            {
-                let load_time = first_load_time.get_or_insert(time.elapsed());
-                let load_time_label = format!("Loaded in {} seconds", load_time.as_secs_f32());
-                sh.get("footer_content::text").update_text(load_time_label);
-            }
-
-            sh.get("refresh_button")
-                .on_pressed(broadcast_fn(AppCommand::RebuildUi));
+            setup_footer(&mut sh.get("footer"), &mut first_load_time, &time);
 
             sh.edit("tab_buttons", setup_tab_buttons);
 
