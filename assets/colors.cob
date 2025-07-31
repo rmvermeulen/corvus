@@ -28,5 +28,8 @@ $primary = $tw::AMBER_600
 $secondary = $tw::ORANGE_600
 $tertiary = $tw::BLUE_600
 
+$white = #FFFFFF
+$black = #000000
+
 $bg_scroll_bar    = #888888
 $bg_scroll_handle = #BBBBBB

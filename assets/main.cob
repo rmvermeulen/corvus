@@ -64,7 +64,7 @@ colors as colors
         "navigation"
             FlexNode{column_gap:4px}
             Splat<Padding>(4px)
-            BackgroundColor(#FFFFFF)
+            BackgroundColor($colors::white)
             "back_button"
                 NavigationButton::Back
                 +widgets::button{
@@ -90,10 +90,21 @@ colors as colors
                         TextLine{text:"[R]"}
                 }
             "location"
+                ControlRoot
                 Margin{left:8px right:8px top:auto bottom:auto}
-                BackgroundColor($colors::text_selected)
-                TextLineColor(#000000)
-                TextLine{text:"cwd"}
+                "text"
+                    ControlMember
+                    Multi<Animated<BackgroundColor>>[
+                        {
+                            idle: $colors::white
+                        },
+                        {
+                            state: [Selected]
+                            idle: $colors::text_selected
+                        }
+                    ]
+                    TextLineColor(#000000)
+                    TextLine{text:"cwd"}
     "content"
         FlexNode{flex_grow:1 column_gap:2px}
         "overview"

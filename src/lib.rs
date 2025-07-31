@@ -9,12 +9,13 @@ use bevy::prelude::*;
 use bevy_cobweb::prelude::*;
 use bevy_cobweb_ui::prelude::scene_traits::SceneNodeBuilderOuter;
 use bevy_cobweb_ui::prelude::*;
-use bevy_cobweb_ui::sickle::UpdateTextExt;
+use bevy_cobweb_ui::sickle::{PseudoState, PseudoStates, UpdateTextExt};
 use cfg_if::cfg_if;
 use derive_more::From;
 use itertools::Itertools;
 
 use crate::loading_screen::loading_screen_plugin;
+use crate::ui_events::LocationSelected;
 use crate::view_state::{ViewState, view_state_plugin};
 
 pub type CobwebLoadState = bevy_cobweb_ui::prelude::LoadState;
@@ -113,11 +114,7 @@ pub mod ui_events {
     pub struct CurrentDirectoryChanged;
 
     #[derive(Clone, Copy, Debug, Default)]
-    pub struct ReloadCurrentDirectory;
-
-    // TODO: implement GoBack
-    #[derive(Clone, Copy, Debug, Default)]
-    pub struct GoBack;
+    pub struct LocationSelected;
 }
 
 // TODO: implement text selection (at least in the address bar)
@@ -219,7 +216,25 @@ fn setup_navigation<'a>(navigation: &mut SceneHandle<'a, UiBuilder<'a, Entity>>)
 
     // TODO: make location editable
     let mut location = navigation.get("location");
-    location.update_on(
+    location
+        .on_pressed(broadcast_fn(ui_events::LocationSelected))
+        .update_on(
+            broadcast::<ui_events::LocationSelected>(),
+            |id: TargetId, mut commands: Commands, mut pseudo_states: Query<&mut PseudoStates>| {
+                info!("on LocationSelected {}", *id);
+                if let Ok(mut states) = pseudo_states.get_mut(*id) {
+                    info!("got states: {states:?}");
+                    if states.has(&PseudoState::Selected) {
+                        states.remove(PseudoState::Selected);
+                    } else {
+                        states.add(PseudoState::Selected);
+                    }
+                } else {
+                    commands.entity(*id).insert(PseudoStates::new());
+                }
+            },
+        );
+    location.get("text").update_on(
         broadcast::<ui_events::CurrentDirectoryChanged>(),
         |id: TargetId, mut text_editor: TextEditor, current_directory: Res<CurrentDirectory>| {
             write_text!(text_editor, *id, "{}", *current_directory);
@@ -247,13 +262,18 @@ fn init_main_tab<'a>(sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
     {
         let path = entry.path();
         let menu_command = match entry_type {
-            EntryType::File | EntryType::Symlink => ExplorerCommand::SetPreview(Some(path.clone())),
-            EntryType::Directory => ExplorerCommand::SetDirectory(path.clone()),
-            _ => unimplemented!("handling unknown entry"),
+            EntryType::File | EntryType::Symlink => {
+                Some(ExplorerCommand::SetPreview(Some(path.clone())))
+            }
+            EntryType::Directory => Some(ExplorerCommand::SetDirectory(path.clone())),
+            _ => None,
         };
         sh.get("content::overview::items")
             .spawn_scene(("widgets", "button"), |sh| {
-                sh.insert(entry_type).on_pressed(broadcast_fn(menu_command));
+                sh.insert(entry_type);
+                if let Some(menu_command) = menu_command {
+                    sh.on_pressed(broadcast_fn(menu_command));
+                }
                 let label = path.to_string_lossy();
                 sh.get("text")
                     .update_text(format!("[{}] {label}", entry_type.get_char()));
