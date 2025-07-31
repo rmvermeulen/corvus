@@ -23,6 +23,11 @@ Application:
   - [x] open at current working directory
 - [ ] multiple windows
 
+Styling:
+
+- [ ] themes or colorizing
+- [ ] a design direction
+
 Explorer:
 
 - [x] preview file content
@@ -32,6 +37,7 @@ Explorer:
 Navigation:
 
 - [ ] editable address bar
+  - [ ] selectable text
 - [ ] go home button
 - [x] reload button
 - [x] navigation history
@@ -42,6 +48,7 @@ Bookmarks:
 
 - [ ] add bookmark button
 - [ ] bookmarks list
+  - [ ] on bookmarks tab
 
 Layout
 
