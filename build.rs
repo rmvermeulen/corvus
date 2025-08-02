@@ -2,15 +2,12 @@ use std::fs::{self, DirEntry};
 use std::io;
 use std::process::Command;
 
-use itertools::Itertools;
-use rayon::prelude::*;
-
 fn generate_cobweb_manifest(manifest_path: &str) -> std::io::Result<()> {
     let current_manifest = fs::read_to_string(manifest_path).expect("Failed to read manifest.cob");
 
-    let names = fs::read_dir("assets")?
+    let mut names_to_import = fs::read_dir("assets")?
         .collect::<Vec<_>>()
-        .into_par_iter()
+        .into_iter()
         .filter_map(|res| res.ok())
         .filter(|entry: &DirEntry| {
             entry.file_type().is_ok_and(|ft| ft.is_file())
@@ -24,14 +21,16 @@ fn generate_cobweb_manifest(manifest_path: &str) -> std::io::Result<()> {
             (name != "manifest").then(|| name.to_string())
         })
         .collect::<Vec<_>>();
+
+    names_to_import.sort();
+    let imports = names_to_import
+        .into_iter()
+        .map(|name| format!(r#""{name}.cob" as {name}"#));
+
     let manifest = ["#manifest".to_string()]
         .into_iter()
-        .chain(
-            names
-                .into_iter()
-                .sorted()
-                .map(|name| format!(r#""{name}.cob" as {name}"#)),
-        )
+        .chain(imports)
+        .collect::<Vec<_>>()
         .join("\n");
     if current_manifest == manifest {
         // nothing changed
