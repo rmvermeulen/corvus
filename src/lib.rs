@@ -8,9 +8,9 @@ use bevy::color::palettes::css;
 use bevy::prelude::*;
 use bevy::ui::RelativeCursorPosition;
 use bevy_cobweb::prelude::*;
-use bevy_cobweb_ui::prelude::scene_traits::SceneNodeBuilderOuter;
+use bevy_cobweb_ui::prelude::scene_traits::{SceneNodeBuilder, SceneNodeBuilderOuter};
 use bevy_cobweb_ui::prelude::*;
-use bevy_cobweb_ui::sickle::{PseudoState, PseudoStates, UpdateTextExt};
+use bevy_cobweb_ui::sickle::{ManagePseudoStateExt, PseudoState, PseudoStates, UpdateTextExt};
 use cfg_if::cfg_if;
 use derive_more::{Display, From};
 use itertools::Itertools;
@@ -411,6 +411,14 @@ fn init_main_tab<'a>(sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
     );
 }
 
+#[derive(Clone, Copy, Debug, Default, Display, PartialEq, Resource)]
+enum PanelLayout {
+    #[default]
+    Automatic,
+    Horizontal,
+    Vertical,
+}
+
 fn init_settings_tab<'a>(settings_tab: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
     let resolution_value = settings_tab.get("settings::resolution::header::value").id();
     let mut shim = settings_tab.get("settings::resolution::options::view::shim");
@@ -436,32 +444,37 @@ fn init_settings_tab<'a>(settings_tab: &mut SceneHandle<'a, UiBuilder<'a, Entity
         );
     }
 
-    #[derive(Clone, Copy, Debug, Default, Display, PartialEq)]
-    enum PanelLayout {
-        #[default]
-        Automatic,
-        Horizontal,
-        Vertical,
-    }
-    #[derive(Clone, Copy, Debug, Default, PartialEq)]
-    struct SetLayout(PanelLayout);
-
-    let layout_value = settings_tab.get("settings::layout::header::value").id();
-    for layout in [
-        PanelLayout::Automatic,
-        PanelLayout::Horizontal,
-        PanelLayout::Vertical,
-    ] {
-        let name = layout.to_string();
-        let key = name.to_lowercase();
-        let path = format!("settings::layout::options::{key}");
-        settings_tab
-            .get(&path)
-            .on_select(broadcast_fn(SetLayout(layout)))
-            .on_select(move |mut commands: Commands| {
-                commands.ui_builder(layout_value).update_text(&name);
-            });
-    }
+    settings_tab.edit("settings::layout", |layout_settings| {
+        let layout_value_label_id = layout_settings.get("header::value").id();
+        for layout in [
+            PanelLayout::Automatic,
+            PanelLayout::Horizontal,
+            PanelLayout::Vertical,
+        ] {
+            let name = layout.to_string();
+            let key = name.to_lowercase();
+            layout_settings
+                .get(&format!("options::{key}"))
+                .on_select(
+                    move |mut commands: Commands, mut panel_layout: ResMut<PanelLayout>| {
+                        // update resource
+                        *panel_layout = layout;
+                        // update label
+                        commands
+                            .ui_builder(layout_value_label_id)
+                            .update_text(&name);
+                    },
+                )
+                // select option that matches Res<PanelLayout>
+                .update(
+                    move |id: TargetId, mut commands: Commands, panel_layout: Res<PanelLayout>| {
+                        if layout == *panel_layout {
+                            commands.react().entity_event(*id, Select);
+                        }
+                    },
+                );
+        }
+    });
 }
 
 /// example: inspect current nodes
@@ -655,6 +668,7 @@ pub fn root_plugin(app: &mut App) {
     app.insert_resource(CurrentDirectory::from(
         env::current_dir().unwrap_or_default(),
     ))
+    .init_resource::<PanelLayout>()
     .add_plugins((DefaultPlugins, CobwebUiPlugin))
     .add_plugins((loading_screen_plugin, view_state_plugin))
     .load("manifest.cob")
