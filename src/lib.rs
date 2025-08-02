@@ -1,6 +1,7 @@
 use std::env;
 use std::fmt::Display;
 use std::fs::{FileType, read_to_string};
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -19,7 +20,7 @@ use derive_more::{Display, From};
 use itertools::Itertools;
 
 use crate::loading_screen::loading_screen_plugin;
-use crate::ui_events::{CurrentDirectoryChanged, LocationSelectionUpdated};
+use crate::ui_events::{CurrentDirectoryChanged, LocationSelectionUpdated, PreviewPathChanged};
 use crate::view_state::{ViewState, view_state_plugin};
 
 pub type CobwebLoadState = bevy_cobweb_ui::prelude::LoadState;
@@ -45,6 +46,9 @@ impl<'w, 's> ChangeTabExt for Commands<'w, 's> {
 
 #[derive(Debug, Deref, DerefMut, Resource)]
 pub struct CurrentDirectory(PathBuf);
+
+#[derive(Debug, Default, Deref, DerefMut, Resource)]
+pub struct PreviewPath(Option<PathBuf>);
 
 #[derive(Debug, Default, From, Resource)]
 pub struct LocationHistory {
@@ -114,7 +118,9 @@ enum AppCommand {
 
 pub mod ui_events {
     use bevy::utils::default;
-    use log::info;
+
+    #[derive(Clone, Copy, Debug, Default)]
+    pub struct PreviewPathChanged;
 
     #[derive(Clone, Copy, Debug, Default)]
     pub struct CurrentDirectoryChanged;
@@ -128,7 +134,6 @@ pub mod ui_events {
 
     impl LocationSelectionUpdated {
         pub fn new_no_selection(text: String) -> Self {
-            info!("new_no_selection({text})");
             Self {
                 before: text,
                 selected: default(),
@@ -282,7 +287,6 @@ fn setup_location_text<'a>(location: &mut SceneHandle<'a, UiBuilder<'a, Entity>>
             broadcast::<ui_events::CurrentDirectoryChanged>(),
             |_: TargetId, mut commands: Commands, current_directory: Res<CurrentDirectory>| {
                 let cwd = current_directory.to_string();
-                info!("clear selection, set text: {cwd}");
                 commands
                     .react()
                     .broadcast(LocationSelectionUpdated::new_no_selection(cwd));
@@ -396,93 +400,89 @@ fn init_main_tab<'a>(sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
     enum PreviewMode<'a> {
         Text,
         Image(&'a str),
-        Binary,
+        // TODO: Binary,
     }
 
     sh.get("content::preview").update_on(
-        broadcast::<ExplorerCommand>(),
+        broadcast::<PreviewPathChanged>(),
         |id: TargetId,
          mut commands: Commands,
-         broadcast_event: BroadcastEvent<ExplorerCommand>,
+         preview_path: Res<PreviewPath>,
          mut images: ResMut<Assets<Image>>| {
-            if let Ok(ExplorerCommand::SetPreview(path)) = broadcast_event.try_read() {
-                commands.entity(*id).despawn_related::<Children>();
-                if let Some(path) = path {
-                    let preview_mode = match path.extension() {
-                        Some(ext) => match ext.to_str() {
-                            Some(ext) => match ext {
-                                "png" | "jpg" | "webp" => PreviewMode::Image(ext),
-                                _ => PreviewMode::Text,
-                            },
-                            _ => PreviewMode::Text,
-                        },
-                        None => PreviewMode::Binary,
-                    };
+            commands.entity(*id).despawn_related::<Children>();
+            info!("{preview_path:?}");
+            if let Some(path) = (*preview_path).as_ref() {
+                let preview_mode = path
+                    .extension()
+                    .and_then(|ext| ext.to_str())
+                    .and_then(|ext| {
+                        matches!(ext, "png" | "jpg" | "webp").then_some(PreviewMode::Image(ext))
+                    })
+                    .unwrap_or(PreviewMode::Text);
 
-                    #[derive(Debug, thiserror::Error)]
-                    enum ImageError {
-                        #[error("io::Error: {0}")]
-                        Io(#[from] io::Error),
-                        #[error("TextureError: {0}")]
-                        Texture(#[from] TextureError),
-                    }
-
-                    fn read_as_text<'a, P: AsRef<Path>>(
-                        path: P,
-                        mut builder: UiBuilder<'a, Entity>,
-                    ) -> io::Result<()> {
-                        read_to_string(path).map(move |text| {
-                            builder.spawn(Text::new(text));
-                        })
-                    }
-
-                    fn read_as_image<'a, P: AsRef<Path>>(
-                        path: P,
-                        ext: &str,
-                        images: &mut Assets<Image>,
-                        mut builder: UiBuilder<'a, Entity>,
-                    ) -> Result<(), ImageError> {
-                        std::fs::read(path)
-                            .map_err(ImageError::from)
-                            .and_then(|bytes| {
-                                Image::from_buffer(
-                                    &bytes,
-                                    ImageType::Extension(ext),
-                                    CompressedImageFormats::default(),
-                                    false,
-                                    bevy::image::ImageSampler::Default,
-                                    RenderAssetUsages::RENDER_WORLD,
-                                )
-                                .map_err(ImageError::from)
-                            })
-                            .map(move |image| {
-                                let image = images.add(image);
-                                builder.spawn(ImageNode::new(image));
-                            })
-                    }
-
-                    fn read_as_binary<'a, P: AsRef<Path>>(
-                        _path: P,
-                        mut _builder: UiBuilder<'a, Entity>,
-                    ) -> Result<(), ImageError> {
-                        todo!("read_as_binary using xxd")
-                    }
-
-                    let read_file_into_preview = match preview_mode {
-                        PreviewMode::Text => read_as_text(path, commands.ui_builder(*id))
-                            .or_else(|_| read_as_binary(path, commands.ui_builder(*id))),
-                        PreviewMode::Image(ext) => {
-                            read_as_image(path, ext, &mut images, commands.ui_builder(*id))
-                                .or_else(|_| read_as_binary(path, commands.ui_builder(*id)))
-                        }
-                        PreviewMode::Binary => read_as_binary(path, commands.ui_builder(*id)),
-                    };
-                    read_file_into_preview.unwrap_or_else(move |error| {
-                        commands
-                            .ui_builder(*id)
-                            .spawn((Text::new(format!("{error}")), TextColor::from(css::RED)));
-                    });
+                #[derive(Debug, thiserror::Error)]
+                enum ImageError {
+                    #[error("io::Error: {0}")]
+                    Io(#[from] io::Error),
+                    #[error("TextureError: {0}")]
+                    Texture(#[from] TextureError),
                 }
+
+                fn read_as_text<'a, P: AsRef<Path>>(
+                    path: P,
+                    mut builder: UiBuilder<'a, Entity>,
+                ) -> io::Result<()> {
+                    read_to_string(path).map(move |text| {
+                        builder.spawn(Text::new(text));
+                    })
+                }
+
+                fn read_as_image<'a, P: AsRef<Path>>(
+                    path: P,
+                    ext: &str,
+                    images: &mut Assets<Image>,
+                    mut builder: UiBuilder<'a, Entity>,
+                ) -> Result<(), ImageError> {
+                    std::fs::read(path)
+                        .map_err(ImageError::from)
+                        .and_then(|bytes| {
+                            Image::from_buffer(
+                                &bytes,
+                                ImageType::Extension(ext),
+                                CompressedImageFormats::default(),
+                                false,
+                                bevy::image::ImageSampler::Default,
+                                RenderAssetUsages::RENDER_WORLD,
+                            )
+                            .map_err(ImageError::from)
+                        })
+                        .map(move |image| {
+                            let image = images.add(image);
+                            builder.spawn(ImageNode::new(image));
+                        })
+                }
+
+                fn read_as_binary<'a, P: AsRef<Path>>(
+                    _path: P,
+                    mut _builder: UiBuilder<'a, Entity>,
+                ) -> Result<(), ImageError> {
+                    todo!("read_as_binary using xxd")
+                }
+
+                match preview_mode {
+                    PreviewMode::Text => {
+                        read_as_text(path, commands.ui_builder(*id)).map_err(Into::into)
+                    }
+                    PreviewMode::Image(ext) => {
+                        read_as_image(path, ext, &mut images, commands.ui_builder(*id))
+                    }
+                }
+                // TODO: .or_else(|_| read_as_binary(path, commands.ui_builder(*id)))
+                .unwrap_or_else(move |error| {
+                    commands
+                        .ui_builder(*id)
+                        .spawn((Text::new(format!("{error}")), TextColor::from(css::RED)));
+                });
             }
         },
     );
@@ -577,11 +577,13 @@ fn update_explorer_on_explorer_command(
     let Ok(event) = broadcast_event.try_read() else {
         return;
     };
+    info!("{event:?}");
 
     fn set_directory(
         path: &Path,
         current_directory: &mut CurrentDirectory,
         location_history: Option<&mut LocationHistory>,
+        commands: &mut Commands,
     ) {
         let path: PathBuf = if !path.is_absolute() {
             current_directory.join(path)
@@ -590,6 +592,9 @@ fn update_explorer_on_explorer_command(
         }
         .canonicalize()
         .expect("path cannot be canonicalized");
+        if path == **current_directory {
+            return;
+        }
         info!("SetDirectory {path:?}");
         match env::set_current_dir(&path) {
             Ok(_) => {
@@ -598,7 +603,16 @@ fn update_explorer_on_explorer_command(
                 }
                 **current_directory = path.clone();
             }
-            Err(e) => warn!("SetDirectory({path:?}) ERROR: {e:?}"),
+            Err(e) => {
+                if e.kind() == ErrorKind::NotADirectory {
+                    info!("not a directory, opening as preview");
+                    commands
+                        .react()
+                        .broadcast(ExplorerCommand::SetPreview(Some(path)));
+                } else {
+                    warn!("SetDirectory({path:?}) ERROR: {e:?}")
+                }
+            }
         };
     }
 
@@ -607,24 +621,47 @@ fn update_explorer_on_explorer_command(
             commands.change_tab(AppTab::Main);
         }
         ExplorerCommand::SetDirectory(path) => {
-            set_directory(path, &mut current_directory, Some(&mut location_history));
+            set_directory(
+                path,
+                &mut current_directory,
+                Some(&mut location_history),
+                &mut commands,
+            );
         }
-        ExplorerCommand::SetPreview(_) => {}
+        ExplorerCommand::SetPreview(preview_path) => {
+            commands.insert_resource(PreviewPath(preview_path.clone()));
+            if let Some(preview_dir_path) = preview_path
+                .as_ref()
+                .and_then(|p| p.parent().map(PathBuf::from))
+            {
+                set_directory(
+                    &preview_dir_path,
+                    &mut current_directory,
+                    Some(&mut location_history),
+                    &mut commands,
+                );
+            }
+        }
         ExplorerCommand::HistoryBack => {
             if let Some(prev) = location_history.back.pop() {
                 location_history.next.insert(0, current_directory.clone());
-                set_directory(&prev, &mut current_directory, None);
+                set_directory(&prev, &mut current_directory, None, &mut commands);
             }
         }
         ExplorerCommand::HistoryNext => {
             if let Some(next) = location_history.next.pop() {
                 location_history.back.push(current_directory.clone());
-                set_directory(&next, &mut current_directory, None);
+                set_directory(&next, &mut current_directory, None, &mut commands);
             }
         }
         ExplorerCommand::GotoParent => {
             if let Some(parent) = current_directory.parent().map(Path::to_owned) {
-                set_directory(&parent, &mut current_directory, Some(&mut location_history));
+                set_directory(
+                    &parent,
+                    &mut current_directory,
+                    Some(&mut location_history),
+                    &mut commands,
+                );
             };
         }
     }
@@ -742,27 +779,32 @@ fn setup_ui(
 }
 
 pub fn root_plugin(app: &mut App) {
-    app.insert_resource(CurrentDirectory::from(
-        env::current_dir().unwrap_or_default(),
-    ))
-    .init_resource::<PanelLayout>()
-    .add_plugins((DefaultPlugins, CobwebUiPlugin))
-    .add_plugins((loading_screen_plugin, view_state_plugin))
-    .load("manifest.cob")
-    .add_systems(
-        FixedUpdate,
-        (
-            broadcast_fn(ui_events::CurrentDirectoryChanged),
-            broadcast_fn(AppCommand::ChangeTab(AppTab::Main)).chain(),
+    app.add_plugins((DefaultPlugins, CobwebUiPlugin))
+        .add_plugins((loading_screen_plugin, view_state_plugin))
+        .load("manifest.cob")
+        .add_systems(
+            FixedUpdate,
+            (
+                (
+                    broadcast_fn(ui_events::CurrentDirectoryChanged),
+                    broadcast_fn(AppCommand::ChangeTab(AppTab::Main)),
+                )
+                    .chain()
+                    .run_if(resource_changed::<CurrentDirectory>),
+                broadcast_fn(ui_events::PreviewPathChanged).run_if(resource_changed::<PreviewPath>),
+            ),
         )
-            .run_if(resource_changed::<CurrentDirectory>),
-    )
-    .add_systems(OnEnter(ViewState::Stable), setup_ui)
-    .add_systems(OnEnter(ViewState::Reset), |mut commands: Commands| {
-        debug!("despawn ui");
-        commands.react().broadcast(DespawnUi);
-    })
-    .init_resource::<LocationHistory>()
-    .register_component_type::<Marker>()
-    .register_component_type::<NavigationButton>();
+        .add_systems(OnEnter(ViewState::Stable), setup_ui)
+        .add_systems(OnEnter(ViewState::Reset), |mut commands: Commands| {
+            debug!("despawn ui");
+            commands.react().broadcast(DespawnUi);
+        })
+        .insert_resource(CurrentDirectory::from(
+            env::current_dir().unwrap_or_default(),
+        ))
+        .init_resource::<PanelLayout>()
+        .init_resource::<LocationHistory>()
+        .init_resource::<PreviewPath>()
+        .register_component_type::<Marker>()
+        .register_component_type::<NavigationButton>();
 }
