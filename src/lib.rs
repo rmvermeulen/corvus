@@ -4,13 +4,16 @@ use std::fs::{FileType, read_to_string};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use bevy::asset::RenderAssetUsages;
 use bevy::color::palettes::css;
+use bevy::image::{CompressedImageFormats, ImageType};
 use bevy::prelude::*;
+use bevy::tasks::futures_lite::io;
 use bevy::ui::RelativeCursorPosition;
 use bevy_cobweb::prelude::*;
-use bevy_cobweb_ui::prelude::scene_traits::{SceneNodeBuilder, SceneNodeBuilderOuter};
+use bevy_cobweb_ui::prelude::scene_traits::SceneNodeBuilderOuter;
 use bevy_cobweb_ui::prelude::*;
-use bevy_cobweb_ui::sickle::{ManagePseudoStateExt, PseudoState, PseudoStates, UpdateTextExt};
+use bevy_cobweb_ui::sickle::UpdateTextExt;
 use cfg_if::cfg_if;
 use derive_more::{Display, From};
 use itertools::Itertools;
@@ -371,10 +374,10 @@ fn init_main_tab<'a>(sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
     {
         let path = entry.path();
         let menu_command = match entry_type {
-            EntryType::File | EntryType::Symlink => {
-                Some(ExplorerCommand::SetPreview(Some(path.clone())))
+            EntryType::File => Some(ExplorerCommand::SetPreview(Some(path.clone()))),
+            EntryType::Directory | EntryType::Symlink => {
+                Some(ExplorerCommand::SetDirectory(path.clone()))
             }
-            EntryType::Directory => Some(ExplorerCommand::SetDirectory(path.clone())),
             _ => None,
         };
         sh.get("content::overview::items")
@@ -389,22 +392,96 @@ fn init_main_tab<'a>(sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
             });
     }
 
+    #[derive(Clone, Copy, Debug)]
+    enum PreviewMode<'a> {
+        Text,
+        Image(&'a str),
+        Binary,
+    }
+
     sh.get("content::preview").update_on(
         broadcast::<ExplorerCommand>(),
-        |id: TargetId, mut commands: Commands, broadcast_event: BroadcastEvent<ExplorerCommand>| {
+        |id: TargetId,
+         mut commands: Commands,
+         broadcast_event: BroadcastEvent<ExplorerCommand>,
+         mut images: ResMut<Assets<Image>>| {
             if let Ok(ExplorerCommand::SetPreview(path)) = broadcast_event.try_read() {
                 commands.entity(*id).despawn_related::<Children>();
                 if let Some(path) = path {
-                    match read_to_string(path) {
-                        Ok(text) => {
-                            commands.ui_builder(*id).spawn(Text::new(text));
-                        }
-                        Err(error) => {
-                            commands
-                                .ui_builder(*id)
-                                .spawn((Text::new(format!("{error}")), TextColor::from(css::RED)));
-                        }
+                    let preview_mode = match path.extension() {
+                        Some(ext) => match ext.to_str() {
+                            Some(ext) => match ext {
+                                "png" | "jpg" | "webp" => PreviewMode::Image(ext),
+                                _ => PreviewMode::Text,
+                            },
+                            _ => PreviewMode::Text,
+                        },
+                        None => PreviewMode::Binary,
+                    };
+
+                    #[derive(Debug, thiserror::Error)]
+                    enum ImageError {
+                        #[error("io::Error: {0}")]
+                        Io(#[from] io::Error),
+                        #[error("TextureError: {0}")]
+                        Texture(#[from] TextureError),
                     }
+
+                    fn read_as_text<'a, P: AsRef<Path>>(
+                        path: P,
+                        mut builder: UiBuilder<'a, Entity>,
+                    ) -> io::Result<()> {
+                        read_to_string(path).map(move |text| {
+                            builder.spawn(Text::new(text));
+                        })
+                    }
+
+                    fn read_as_image<'a, P: AsRef<Path>>(
+                        path: P,
+                        ext: &str,
+                        images: &mut Assets<Image>,
+                        mut builder: UiBuilder<'a, Entity>,
+                    ) -> Result<(), ImageError> {
+                        std::fs::read(path)
+                            .map_err(ImageError::from)
+                            .and_then(|bytes| {
+                                Image::from_buffer(
+                                    &bytes,
+                                    ImageType::Extension(ext),
+                                    CompressedImageFormats::default(),
+                                    false,
+                                    bevy::image::ImageSampler::Default,
+                                    RenderAssetUsages::RENDER_WORLD,
+                                )
+                                .map_err(ImageError::from)
+                            })
+                            .map(move |image| {
+                                let image = images.add(image);
+                                builder.spawn(ImageNode::new(image));
+                            })
+                    }
+
+                    fn read_as_binary<'a, P: AsRef<Path>>(
+                        _path: P,
+                        mut _builder: UiBuilder<'a, Entity>,
+                    ) -> Result<(), ImageError> {
+                        todo!("read_as_binary using xxd")
+                    }
+
+                    let read_file_into_preview = match preview_mode {
+                        PreviewMode::Text => read_as_text(path, commands.ui_builder(*id))
+                            .or_else(|_| read_as_binary(path, commands.ui_builder(*id))),
+                        PreviewMode::Image(ext) => {
+                            read_as_image(path, ext, &mut images, commands.ui_builder(*id))
+                                .or_else(|_| read_as_binary(path, commands.ui_builder(*id)))
+                        }
+                        PreviewMode::Binary => read_as_binary(path, commands.ui_builder(*id)),
+                    };
+                    read_file_into_preview.unwrap_or_else(move |error| {
+                        commands
+                            .ui_builder(*id)
+                            .spawn((Text::new(format!("{error}")), TextColor::from(css::RED)));
+                    });
                 }
             }
         },
@@ -454,7 +531,7 @@ fn init_settings_tab<'a>(settings_tab: &mut SceneHandle<'a, UiBuilder<'a, Entity
             let name = layout.to_string();
             let key = name.to_lowercase();
             layout_settings
-                .get(&format!("options::{key}"))
+                .get(format!("options::{key}"))
                 .on_select(
                     move |mut commands: Commands, mut panel_layout: ResMut<PanelLayout>| {
                         // update resource

@@ -1698,6 +1698,7 @@ dependencies = [
  "itertools 0.14.0",
  "log",
  "smol_str",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
