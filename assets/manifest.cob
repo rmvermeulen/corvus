@@ -1,4 +1,5 @@
 #manifest
-"main.cob" as main
-"widgets.cob" as widgets
 "colors.cob" as colors
+"main.cob" as main
+"tabs.cob" as tabs
+"widgets.cob" as widgets
