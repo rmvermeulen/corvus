@@ -540,17 +540,29 @@ fn update_explorer_on_explorer_command(
     }
 }
 
+#[derive(Clone, Copy, Debug, Deref, DerefMut, Resource)]
+struct ActiveTab(AppTab);
+
+impl ActiveTab {
+    fn tab(&self) -> AppTab {
+        **self
+    }
+}
+
 fn update_tab_content_on_app_command(
     id: TargetId,
     broadcast_event: BroadcastEvent<AppCommand>,
     mut commands: Commands,
     mut scene_builder: SceneBuilder,
+    active_tab: Option<Res<ActiveTab>>,
 ) {
     let Ok(event) = broadcast_event.try_read() else {
         return;
     };
     match event {
         AppCommand::RebuildUi => {
+            let tab = active_tab.map(|res| res.tab()).unwrap_or(AppTab::Main);
+            commands.insert_resource(ActiveTab(tab));
             commands.set_state(ViewState::Reset);
         }
         AppCommand::ChangeTab(tab) => {
@@ -576,6 +588,7 @@ fn update_tab_content_on_app_command(
                     );
                 }
             }
+            commands.insert_resource(ActiveTab(*tab));
         }
     }
 }
@@ -615,6 +628,7 @@ fn setup_ui(
     mut commands: Commands,
     mut scene_builder: SceneBuilder,
     time: Res<Time>,
+    active_tab: Option<Res<ActiveTab>>,
 ) {
     commands
         .ui_root()
@@ -630,8 +644,8 @@ fn setup_ui(
                     update_explorer_on_explorer_command,
                 );
 
-            // show the main tab
-            sh.react().broadcast(AppCommand::ChangeTab(AppTab::Main));
+            let tab = active_tab.map(|res| res.tab()).unwrap_or(AppTab::Main);
+            sh.react().broadcast(AppCommand::ChangeTab(tab));
 
             sh.despawn_on_broadcast::<DespawnUi>();
         });
