@@ -30,7 +30,10 @@ Styling:
 
 Explorer:
 
-- [x] preview file content
+- [ ] preview file content
+  - [x] text
+  - [ ] images
+  - [ ] binary
 - [ ] drag-and-drop files onto the app
 - [ ] drag-and-drop files from the app
 
