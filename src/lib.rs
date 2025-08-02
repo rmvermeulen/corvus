@@ -12,7 +12,7 @@ use bevy_cobweb_ui::prelude::scene_traits::SceneNodeBuilderOuter;
 use bevy_cobweb_ui::prelude::*;
 use bevy_cobweb_ui::sickle::{PseudoState, PseudoStates, UpdateTextExt};
 use cfg_if::cfg_if;
-use derive_more::From;
+use derive_more::{Display, From};
 use itertools::Itertools;
 
 use crate::loading_screen::loading_screen_plugin;
@@ -411,9 +411,9 @@ fn init_main_tab<'a>(sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
     );
 }
 
-fn init_settings_tab<'a>(sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
-    let resolution_label = sh.get("settings::resolution::label").id();
-    let mut shim = sh.get("settings::resolution::options::view::shim");
+fn init_settings_tab<'a>(settings_tab: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
+    let resolution_value = settings_tab.get("settings::resolution::header::value").id();
+    let mut shim = settings_tab.get("settings::resolution::options::view::shim");
     for resolution in &["80x60", "800x600", "1024x768", "1920x1080"] {
         shim.update(
             move |id: TargetId, mut commands: Commands, mut scene_builder: SceneBuilder| {
@@ -426,7 +426,7 @@ fn init_settings_tab<'a>(sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
                         // set value label
                         sh.on_select(move |mut commands: Commands| {
                             commands
-                                .get_entity(resolution_label)?
+                                .get_entity(resolution_value)?
                                 .update_text(*resolution);
                             DONE
                         });
@@ -434,6 +434,33 @@ fn init_settings_tab<'a>(sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
                 );
             },
         );
+    }
+
+    #[derive(Clone, Copy, Debug, Default, Display, PartialEq)]
+    enum PanelLayout {
+        #[default]
+        Automatic,
+        Horizontal,
+        Vertical,
+    }
+    #[derive(Clone, Copy, Debug, Default, PartialEq)]
+    struct SetLayout(PanelLayout);
+
+    let layout_value = settings_tab.get("settings::layout::header::value").id();
+    for layout in [
+        PanelLayout::Automatic,
+        PanelLayout::Horizontal,
+        PanelLayout::Vertical,
+    ] {
+        let name = layout.to_string();
+        let key = name.to_lowercase();
+        let path = format!("settings::layout::options::{key}");
+        settings_tab
+            .get(&path)
+            .on_select(broadcast_fn(SetLayout(layout)))
+            .on_select(move |mut commands: Commands| {
+                commands.ui_builder(layout_value).update_text(&name);
+            });
     }
 }
 
