@@ -700,7 +700,7 @@ fn update_tab_content_on_app_command(
             match tab {
                 AppTab::Main => {
                     commands.ui_builder(id).spawn_scene(
-                        ("tabs", "main_tab"),
+                        ("tabs_main", "main_tab"),
                         &mut scene_builder,
                         init_main_tab,
                     );
@@ -709,7 +709,7 @@ fn update_tab_content_on_app_command(
                 }
                 AppTab::Settings => {
                     commands.ui_builder(id).spawn_scene(
-                        ("tabs", "settings_tab"),
+                        ("tabs_main", "settings_tab"),
                         &mut scene_builder,
                         init_settings_tab,
                     );
