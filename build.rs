@@ -117,5 +117,6 @@ fn main() {
         configure_hooks_path("hooks").unwrap(),
         "configure_hooks_path: unexpected exit code"
     );
-    generate_cobweb_manifest("assets/manifest.cob").expect("generate_cobweb_manifest failed");
+    generate_cobweb_manifest("assets/cobweb/manifest.cob")
+        .expect("generate_cobweb_manifest failed");
 }

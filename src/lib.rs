@@ -314,7 +314,7 @@ impl<'a, B: SceneNodeBuilderOuter<'a>> PathChecksExt for SceneHandle<'a, B> {
 pub fn root_plugin(app: &mut App) {
     app.add_plugins((DefaultPlugins, CobwebUiPlugin))
         .add_plugins((loading_screen_plugin, view_state_plugin))
-        .load("manifest.cob")
+        .load("cobweb/manifest.cob")
         .add_systems(
             FixedUpdate,
             (
