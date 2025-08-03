@@ -70,10 +70,14 @@ fn cobble<P: Into<PathBuf>>(path: P, prefix: Option<String>) -> impl IntoIterato
         .collect::<Vec<_>>()
 }
 
-fn generate_cobweb_manifest(manifest_path: &str) -> std::io::Result<()> {
-    let current_manifest = fs::read_to_string(manifest_path).expect("Failed to read manifest.cob");
-
-    let entries = cobble("assets", None).into_iter().collect::<Vec<_>>();
+fn generate_cobweb_manifest<P: Into<PathBuf>>(manifest_path: P) -> std::io::Result<()> {
+    let manifest_path: PathBuf = manifest_path.into();
+    let entries = cobble(
+        manifest_path.parent().expect("manifest must be in assets/"),
+        None,
+    )
+    .into_iter()
+    .collect::<Vec<_>>();
 
     let mut names_to_import = entries
         .into_iter()
@@ -91,11 +95,13 @@ fn generate_cobweb_manifest(manifest_path: &str) -> std::io::Result<()> {
         .chain(imports)
         .collect::<Vec<_>>()
         .join("\n");
-    if current_manifest == manifest {
+    if let Ok(current_manifest) = fs::read_to_string(&manifest_path)
+        && current_manifest == manifest
+    {
         // nothing changed
         Ok(())
     } else {
-        fs::write("assets/manifest.cob", manifest.as_bytes())
+        fs::write(&manifest_path, manifest.as_bytes())
     }
 }
 
