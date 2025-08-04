@@ -25,7 +25,7 @@ pub fn update_tab_content_on_app_command(
         AppCommand::RebuildUi => {
             let tab = active_tab.map(|res| res.tab()).unwrap_or(AppTab::Main);
             commands.insert_resource(ActiveTab(tab));
-            commands.set_state(ViewState::Reset);
+            commands.set_state(ViewState::Unstable);
         }
         AppCommand::ChangeTab(tab) => {
             let id = *id;

@@ -5,14 +5,14 @@ use super::*;
 pub enum ViewState {
     /// Use this state to clear remaining persistent structures
     #[default]
-    Reset,
+    Unstable,
     /// Use this state to scope entities etc.
     Stable,
 }
 
 pub fn view_state_plugin(app: &mut App) {
     app.add_sub_state::<ViewState>().add_systems(
-        OnEnter(ViewState::Reset),
+        OnEnter(ViewState::Unstable),
         |mut next_state: ResMut<NextState<ViewState>>| {
             debug!("Reset! going back to ViewState::Stable");
             next_state.set(ViewState::Stable);

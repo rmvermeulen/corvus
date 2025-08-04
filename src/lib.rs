@@ -327,7 +327,7 @@ pub fn root_plugin(app: &mut App) {
             ),
         )
         .add_systems(OnEnter(ViewState::Stable), build_ui)
-        .add_systems(OnEnter(ViewState::Reset), |mut commands: Commands| {
+        .add_systems(OnEnter(ViewState::Unstable), |mut commands: Commands| {
             debug!("despawn ui");
             commands.react().broadcast(DespawnUi);
         })
