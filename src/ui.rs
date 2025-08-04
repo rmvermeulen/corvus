@@ -6,7 +6,7 @@ use crate::loading_screen::loading_screen_plugin;
 use crate::prelude::*;
 use crate::resources::{CurrentDirectory, PanelLayout};
 use crate::traits::{ChangeTabExt, PathChecksExt};
-use crate::ui::ui_events::{CurrentDirectoryChanged, ViewStateReset};
+use crate::ui::ui_events::{CurrentDirectoryChanged, UpdateCurrentDirectory, ViewStateReset};
 use crate::ui::view_state::{ViewState, view_state_plugin};
 use crate::{LocationHistory, PreviewPath};
 
@@ -133,7 +133,8 @@ fn update_tab_content_on_app_command(
                         main_tab::init_main_tab,
                     );
                     // show the current directory
-                    commands.react().broadcast(CurrentDirectoryChanged);
+                    commands.react().broadcast(UpdateCurrentDirectory);
+                    // commands.
                 }
                 AppTab::Settings => {
                     commands.ui_builder(id).spawn_scene(
@@ -238,18 +239,11 @@ fn update_explorer_on_explorer_command(
             );
         }
         ExplorerCommand::SetPreview(preview_path) => {
-            commands.insert_resource(PreviewPath::from(preview_path.clone()));
-            if let Some(preview_dir_path) = preview_path
-                .as_ref()
-                .and_then(|p| p.parent().map(PathBuf::from))
-            {
-                set_directory(
-                    &preview_dir_path,
-                    &mut current_directory,
-                    Some(&mut location_history),
-                    &mut commands,
-                );
-            }
+            commands.insert_resource(PreviewPath::from(
+                preview_path
+                    .as_ref()
+                    .and_then(|path| path.canonicalize().ok()),
+            ));
         }
         ExplorerCommand::HistoryBack => {
             if let Some(prev) = location_history.back.pop() {
@@ -298,12 +292,12 @@ pub fn ui_plugin(app: &mut App) {
             FixedUpdate,
             (
                 (
-                    // send_event_fn(ui_events::CurrentDirectoryChanged),
-                    broadcast_fn(ui_events::CurrentDirectoryChanged),
+                    // re-build tab
                     broadcast_fn(AppCommand::ChangeTab(AppTab::Main)),
+                    send_event_fn(CurrentDirectoryChanged),
                 )
                     .run_if(resource_changed::<CurrentDirectory>),
-                broadcast_fn(ui_events::PreviewPathChanged).run_if(resource_changed::<PreviewPath>),
+                broadcast_fn(ui_events::UpdatePreview).run_if(resource_changed::<PreviewPath>),
                 clear_preview_path.run_if(on_event::<CurrentDirectoryChanged>),
             ),
         )

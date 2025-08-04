@@ -6,7 +6,10 @@ use crate::prelude::Event;
 pub struct ViewStateReset;
 
 #[derive(Clone, Copy, Debug, Default)]
-pub struct PreviewPathChanged;
+pub struct UpdatePreview;
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct UpdateCurrentDirectory;
 
 #[derive(Clone, Copy, Debug, Default, Event)]
 pub struct CurrentDirectoryChanged;

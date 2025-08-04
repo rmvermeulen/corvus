@@ -15,7 +15,8 @@ use itertools::Itertools;
 use crate::fs::EntryType;
 use crate::resources::{CurrentDirectory, PreviewPath};
 use crate::traits::PathChecksExt;
-use crate::ui::ui_events::{CurrentDirectoryChanged, LocationSelectionUpdated, PreviewPathChanged};
+use crate::ui::ui_events::{CurrentDirectoryChanged, LocationSelectionUpdated,
+                           UpdateCurrentDirectory, UpdatePreview};
 use crate::ui::{ExplorerCommand, broadcast_fn};
 
 fn setup_location_text<'a>(location: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
@@ -87,7 +88,7 @@ fn setup_location_text<'a>(location: &mut SceneHandle<'a, UiBuilder<'a, Entity>>
             },
         )
         .update_on(
-            broadcast::<CurrentDirectoryChanged>(),
+            broadcast::<UpdateCurrentDirectory>(),
             |_: TargetId, mut commands: Commands, current_directory: Res<CurrentDirectory>| {
                 let cwd = current_directory.to_string();
                 commands
@@ -209,13 +210,13 @@ pub fn init_main_tab<'a>(sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
     }
 
     sh.get("content::preview").update_on(
-        broadcast::<PreviewPathChanged>(),
+        broadcast::<UpdatePreview>(),
         |id: TargetId,
          mut commands: Commands,
          preview_path: Res<PreviewPath>,
          mut images: ResMut<Assets<Image>>| {
             commands.entity(*id).despawn_related::<Children>();
-            info!("{preview_path:?}");
+            info!("content::preview {preview_path:?}");
             if let Some(path) = (*preview_path).as_ref() {
                 let preview_mode = path
                     .extension()
