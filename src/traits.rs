@@ -1,5 +1,5 @@
-use crate::ui::{AppCommand, AppTab};
 use crate::prelude::*;
+use crate::ui::{AppCommand, AppTab};
 
 pub trait PathChecksExt {
     fn path_vec(&self) -> Vec<&str>;

@@ -13,10 +13,10 @@ use bevy_cobweb_ui::prelude::*;
 use itertools::Itertools;
 
 use crate::fs::EntryType;
-use crate::ui::ui_events::{CurrentDirectoryChanged, LocationSelectionUpdated, PreviewPathChanged};
-use crate::ui::{ExplorerCommand, broadcast_fn};
 use crate::resources::{CurrentDirectory, PreviewPath};
 use crate::traits::PathChecksExt;
+use crate::ui::ui_events::{CurrentDirectoryChanged, LocationSelectionUpdated, PreviewPathChanged};
+use crate::ui::{ExplorerCommand, broadcast_fn};
 
 fn setup_location_text<'a>(location: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
     assert!(location.path_ends_with(&["location"]));

@@ -1,13 +1,13 @@
-use crate::ui::ui_plugin;
 use crate::fs::fs_plugin;
 use crate::prelude::*;
 use crate::resources::{LocationHistory, PreviewPath};
+use crate::ui::ui_plugin;
 
-mod ui;
 mod fs;
 mod loading_screen;
 mod resources;
 mod traits;
+mod ui;
 
 mod prelude {
     pub use std::path::{Path, PathBuf};

@@ -4,7 +4,6 @@ use std::path::PathBuf;
 use bevy::prelude::*;
 use derive_more::{Display, From};
 
-
 #[derive(Clone, Copy, Debug, Default, Display, PartialEq, Resource)]
 pub enum PanelLayout {
     #[default]
