@@ -45,3 +45,8 @@ impl From<FileType> for EntryType {
         }
     }
 }
+
+pub fn fs_plugin(app: &mut App) {
+    // get fs info asap, even if ui is still doing things
+    app.add_systems(Startup, || {});
+}

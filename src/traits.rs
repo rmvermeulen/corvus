@@ -1,4 +1,4 @@
-use crate::explorer::{AppCommand, AppTab};
+use crate::ui::{AppCommand, AppTab};
 use crate::prelude::*;
 
 pub trait PathChecksExt {

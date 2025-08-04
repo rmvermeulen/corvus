@@ -2,12 +2,12 @@ use std::env;
 use std::io::ErrorKind;
 use std::time::Duration;
 
-use crate::explorer::ui_events::{CurrentDirectoryChanged, ViewStateReset};
-use crate::explorer::view_state::{ViewState, view_state_plugin};
 use crate::loading_screen::loading_screen_plugin;
 use crate::prelude::*;
-use crate::resources::{ActiveTab, CurrentDirectory, PanelLayout};
+use crate::resources::{CurrentDirectory, PanelLayout};
 use crate::traits::{ChangeTabExt, PathChecksExt};
+use crate::ui::ui_events::{CurrentDirectoryChanged, ViewStateReset};
+use crate::ui::view_state::{ViewState, view_state_plugin};
 use crate::{LocationHistory, PreviewPath};
 
 mod main_tab;
@@ -41,8 +41,10 @@ enum NavigationButton {
     Reload,
 }
 
-#[derive(Clone, Component, Copy, Debug, PartialEq)]
+#[derive(Clone, Component, Copy, Debug, Default, Eq, Hash, PartialEq, SubStates)]
+#[source(CobwebLoadState = CobwebLoadState::Done)]
 pub enum AppTab {
+    #[default]
     Main,
     Settings,
 }
@@ -100,15 +102,14 @@ fn update_tab_content_on_app_command(
     broadcast_event: BroadcastEvent<AppCommand>,
     mut commands: Commands,
     mut scene_builder: SceneBuilder,
-    active_tab: Option<Res<ActiveTab>>,
+    mut next_app_tab: ResMut<NextState<AppTab>>,
 ) {
     let Ok(event) = broadcast_event.try_read() else {
         return;
     };
     match event {
         AppCommand::RebuildUi => {
-            let tab = active_tab.map(|res| res.tab()).unwrap_or(AppTab::Main);
-            commands.insert_resource(ActiveTab::from(tab));
+            // drop and rebuild ui
             commands.set_state(ViewState::Unstable);
         }
         AppCommand::ChangeTab(tab) => {
@@ -134,7 +135,7 @@ fn update_tab_content_on_app_command(
                     );
                 }
             }
-            commands.insert_resource(ActiveTab::from(*tab));
+            next_app_tab.set(*tab);
         }
     }
 }
@@ -144,7 +145,7 @@ pub fn build_ui(
     mut commands: Commands,
     mut scene_builder: SceneBuilder,
     time: Res<Time>,
-    active_tab: Option<Res<ActiveTab>>,
+    active_tab: Res<State<AppTab>>,
 ) {
     commands
         .ui_root()
@@ -160,7 +161,7 @@ pub fn build_ui(
                     update_explorer_on_explorer_command,
                 );
 
-            let tab = active_tab.map(|res| res.tab()).unwrap_or(AppTab::Main);
+            let tab = *active_tab.get();
             sh.react().broadcast(AppCommand::ChangeTab(tab));
 
             sh.despawn_on_broadcast::<ViewStateReset>();
@@ -267,13 +268,14 @@ fn update_explorer_on_explorer_command(
     }
 }
 
-pub fn explorer_plugin(app: &mut App) {
+pub fn ui_plugin(app: &mut App) {
     app.add_plugins(CobwebUiPlugin)
         .load("cobweb/manifest.cob")
         .add_plugins((loading_screen_plugin, view_state_plugin))
         .insert_resource(CurrentDirectory::from(
             std::env::current_dir().unwrap_or_default(),
         ))
+        .add_sub_state::<AppTab>()
         .init_resource::<PanelLayout>()
         .init_resource::<LocationHistory>()
         .init_resource::<PreviewPath>()

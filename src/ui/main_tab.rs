@@ -12,10 +12,9 @@ use bevy_cobweb::prelude::*;
 use bevy_cobweb_ui::prelude::*;
 use itertools::Itertools;
 
-use crate::explorer::ui_events::{CurrentDirectoryChanged, LocationSelectionUpdated,
-                                 PreviewPathChanged};
-use crate::explorer::{ExplorerCommand, broadcast_fn};
-use crate::fsio::EntryType;
+use crate::fs::EntryType;
+use crate::ui::ui_events::{CurrentDirectoryChanged, LocationSelectionUpdated, PreviewPathChanged};
+use crate::ui::{ExplorerCommand, broadcast_fn};
 use crate::resources::{CurrentDirectory, PreviewPath};
 use crate::traits::PathChecksExt;
 

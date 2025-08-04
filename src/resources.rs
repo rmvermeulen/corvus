@@ -4,7 +4,6 @@ use std::path::PathBuf;
 use bevy::prelude::*;
 use derive_more::{Display, From};
 
-use crate::explorer::AppTab;
 
 #[derive(Clone, Copy, Debug, Default, Display, PartialEq, Resource)]
 pub enum PanelLayout {
@@ -39,14 +38,5 @@ impl Display for CurrentDirectory {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let text = self.to_string_lossy();
         write!(f, "{text}")
-    }
-}
-
-#[derive(Clone, Copy, Debug, Deref, DerefMut, From, Resource)]
-pub struct ActiveTab(AppTab);
-
-impl ActiveTab {
-    pub(crate) fn tab(&self) -> AppTab {
-        **self
     }
 }

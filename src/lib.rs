@@ -1,9 +1,10 @@
-use crate::explorer::explorer_plugin;
+use crate::ui::ui_plugin;
+use crate::fs::fs_plugin;
 use crate::prelude::*;
 use crate::resources::{LocationHistory, PreviewPath};
 
-mod explorer;
-mod fsio;
+mod ui;
+mod fs;
 mod loading_screen;
 mod resources;
 mod traits;
@@ -32,6 +33,6 @@ mod prelude {
 /// }
 ///```
 
-pub fn root_plugin(app: &mut App) {
-    app.add_plugins((DefaultPlugins, explorer_plugin));
+pub fn explorer_plugin(app: &mut App) {
+    app.add_plugins((DefaultPlugins, fs_plugin, ui_plugin));
 }

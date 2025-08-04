@@ -1,6 +1,6 @@
 use bevy::app::App;
-use cobweb_starter::root_plugin;
+use cobweb_starter::explorer_plugin;
 
 fn main() {
-    App::new().add_plugins(root_plugin).run();
+    App::new().add_plugins(explorer_plugin).run();
 }
