@@ -15,6 +15,14 @@ mod settings_tab;
 mod ui_events;
 mod view_state;
 
+pub fn send_event_fn<E: Event + Clone + Send + Sync + 'static>(
+    value: E,
+) -> impl Fn(EventWriter<E>) {
+    move |mut writer: EventWriter<E>| {
+        writer.send(value.clone());
+    }
+}
+
 pub fn broadcast_fn<T: Clone + Send + Sync + 'static>(value: T) -> impl Fn(Commands) {
     move |mut commands| {
         commands.react().broadcast(value.clone());
@@ -268,6 +276,10 @@ fn update_explorer_on_explorer_command(
     }
 }
 
+fn clear_preview_path(mut preview_path: ResMut<PreviewPath>) {
+    _ = preview_path.take();
+}
+
 pub fn ui_plugin(app: &mut App) {
     app.add_plugins(CobwebUiPlugin)
         .load("cobweb/manifest.cob")
@@ -275,6 +287,7 @@ pub fn ui_plugin(app: &mut App) {
         .insert_resource(CurrentDirectory::from(
             std::env::current_dir().unwrap_or_default(),
         ))
+        .add_event::<CurrentDirectoryChanged>()
         .add_sub_state::<AppTab>()
         .init_resource::<PanelLayout>()
         .init_resource::<LocationHistory>()
@@ -285,12 +298,13 @@ pub fn ui_plugin(app: &mut App) {
             FixedUpdate,
             (
                 (
+                    // send_event_fn(ui_events::CurrentDirectoryChanged),
                     broadcast_fn(ui_events::CurrentDirectoryChanged),
                     broadcast_fn(AppCommand::ChangeTab(AppTab::Main)),
                 )
-                    .chain()
                     .run_if(resource_changed::<CurrentDirectory>),
                 broadcast_fn(ui_events::PreviewPathChanged).run_if(resource_changed::<PreviewPath>),
+                clear_preview_path.run_if(on_event::<CurrentDirectoryChanged>),
             ),
         )
         .add_systems(OnEnter(ViewState::Stable), build_ui)
