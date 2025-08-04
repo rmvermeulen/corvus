@@ -1,4 +1,4 @@
-use super::*;
+use crate::prelude::*;
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, SubStates)]
 #[source(CobwebLoadState = CobwebLoadState::Done)]

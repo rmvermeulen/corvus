@@ -12,8 +12,12 @@ use bevy_cobweb::prelude::*;
 use bevy_cobweb_ui::prelude::*;
 use itertools::Itertools;
 
-use crate::ui_events::{self, LocationSelectionUpdated, PreviewPathChanged};
-use crate::{CurrentDirectory, EntryType, ExplorerCommand, PathChecksExt, PreviewPath, broadcast_fn};
+use crate::explorer::ui_events::{CurrentDirectoryChanged, LocationSelectionUpdated,
+                                 PreviewPathChanged};
+use crate::explorer::{ExplorerCommand, broadcast_fn};
+use crate::fsio::EntryType;
+use crate::resources::{CurrentDirectory, PreviewPath};
+use crate::traits::PathChecksExt;
 
 fn setup_location_text<'a>(location: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
     assert!(location.path_ends_with(&["location"]));
@@ -84,7 +88,7 @@ fn setup_location_text<'a>(location: &mut SceneHandle<'a, UiBuilder<'a, Entity>>
             },
         )
         .update_on(
-            broadcast::<ui_events::CurrentDirectoryChanged>(),
+            broadcast::<CurrentDirectoryChanged>(),
             |_: TargetId, mut commands: Commands, current_directory: Res<CurrentDirectory>| {
                 let cwd = current_directory.to_string();
                 commands
@@ -167,6 +171,8 @@ pub fn init_main_tab<'a>(sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
     info!("init_main_tab ({:?})", env::current_dir());
     setup_header(&mut sh.get("header"));
 
+    // TODO: async io (queue?)
+    // TODO: independent of ui
     for (entry_type, entry) in std::fs::read_dir(".")
         .unwrap()
         .filter_map(Result::ok)

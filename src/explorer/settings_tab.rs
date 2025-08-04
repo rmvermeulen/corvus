@@ -3,7 +3,7 @@ use bevy_cobweb::prelude::*;
 use bevy_cobweb_ui::prelude::*;
 use bevy_cobweb_ui::sickle::UpdateTextExt;
 
-use crate::PanelLayout;
+use crate::resources::PanelLayout;
 
 pub fn init_settings_tab<'a>(settings_tab: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
     let resolution_value = settings_tab.get("settings::resolution::header::value").id();

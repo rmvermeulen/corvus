@@ -1,6 +1,9 @@
 use bevy::utils::default;
 
 #[derive(Clone, Copy, Debug, Default)]
+pub struct ViewStateReset;
+
+#[derive(Clone, Copy, Debug, Default)]
 pub struct PreviewPathChanged;
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -29,4 +32,3 @@ impl LocationSelectionUpdated {
         }
     }
 }
-

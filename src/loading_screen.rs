@@ -1,6 +1,6 @@
 use bevy::color::palettes::css::BLACK;
-use bevy::prelude::*;
-use bevy_cobweb_ui::prelude::*;
+
+use crate::prelude::*;
 
 #[derive(Component)]
 struct LoadingScreen;
