@@ -1,21 +1,12 @@
-use std::env;
-use std::fmt::Display;
-use std::fs::FileType;
-use std::io::ErrorKind;
-use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use bevy::prelude::*;
 use bevy_cobweb::prelude::*;
-use bevy_cobweb_ui::prelude::scene_traits::SceneNodeBuilderOuter;
 use bevy_cobweb_ui::prelude::*;
-use cfg_if::cfg_if;
-use derive_more::{Display, From};
 use itertools::Itertools;
 
-use crate::loading_screen::loading_screen_plugin;
 use crate::ui_events::CurrentDirectoryChanged;
-use crate::view_state::{ViewState, view_state_plugin};
+use crate::view_state::ViewState;
 use crate::{ActiveTab, AppCommand, AppTab, ChangeTabExt, DespawnUi, ExplorerCommand,
             PathChecksExt, broadcast_fn, main_tab, settings_tab,
             update_explorer_on_explorer_command};

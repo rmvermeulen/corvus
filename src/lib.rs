@@ -3,7 +3,6 @@ use std::fmt::Display;
 use std::fs::FileType;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 use bevy::prelude::*;
 use bevy_cobweb::prelude::*;
@@ -13,7 +12,7 @@ use cfg_if::cfg_if;
 use derive_more::{Display, From};
 use itertools::Itertools;
 
-use crate::app_ui::{build_ui, update_tab_content_on_app_command};
+use crate::app_ui::build_ui;
 use crate::loading_screen::loading_screen_plugin;
 use crate::view_state::{ViewState, view_state_plugin};
 
