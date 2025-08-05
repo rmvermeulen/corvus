@@ -2,6 +2,7 @@
 widgets as widgets
 colors as colors
 #defs
+$nav_button_padding = 2px
 #scenes
 "main_tab"
     BackgroundColor(#AAAAAA)
@@ -14,7 +15,6 @@ colors as colors
     }
     Splat<Padding>(8px)
     "header"
-        BackgroundColor(#AAAAAA)
         FlexNode{flex_direction:Row}
         "navigation"
             FlexNode{column_gap:4px}
@@ -22,24 +22,28 @@ colors as colors
             BackgroundColor($colors::white)
             "back_button"
                 NavigationButton::Back
+                Splat<Padding>($nav_button_padding)
                 +widgets::button{
                     "text"
                         TextLine{text:"[B]"}
                 }
             "up_button"
                 NavigationButton::Up
+                Splat<Padding>($nav_button_padding)
                 +widgets::button{
                     "text"
                         TextLine{text:"[U]"}
                 }
             "next_button"
                 NavigationButton::Next
+                Splat<Padding>($nav_button_padding)
                 +widgets::button{
                     "text"
                         TextLine{text:"[N]"}
                 }
             "reload_button"
                 NavigationButton::Reload
+                Splat<Padding>($nav_button_padding)
                 +widgets::button{
                     "text"
                         TextLine{text:"[R]"}
