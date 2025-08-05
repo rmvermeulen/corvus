@@ -3,9 +3,66 @@ use std::fs::{FileType, read_dir, read_link};
 use std::io;
 
 use bevy::tasks::{IoTaskPool, Task, block_on, poll_once};
-use rayon::iter::ParallelIterator;
 
-use crate::prelude::*;
+use crate::prelude::{Event, *};
+use crate::resources::CurrentDirectory;
+use crate::ui::send_event_fn;
+
+#[derive(Clone, Copy, Debug)]
+pub struct NavigationIconConfig {
+    pub back: char,
+    pub next: char,
+    pub up: char,
+    pub reload: char,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct FsIconConfig {
+    pub file: char,
+    pub directory: char,
+    pub symlink: char,
+    pub unknown: char,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct IconConfig {
+    pub navigation: NavigationIconConfig,
+    pub fs: FsIconConfig,
+}
+
+cfg_if! {
+    if #[cfg(feature = "emoji")] {
+        const ICON_CONFIG: IconConfig = IconConfig {
+            navigation: NavigationIconConfig {
+                back: '🔙',
+                next: '🔜',
+                up: '🔝',
+                reload: '🔄',
+            },
+            fs: FsIconConfig {
+                file: '📄',
+                directory: '📁',
+                symlink: '🔗',
+                unknown: '❓',
+            },
+        };
+    } else {
+        const ICON_CONFIG: IconConfig = IconConfig {
+            navigation: NavigationIconConfig {
+                back: 'b',
+                next: 'n',
+                up: 'u',
+                reload: 'r',
+            },
+            fs: FsIconConfig {
+                file: 'f',
+                directory: 'd',
+                symlink: 's',
+                unknown: 'u',
+            },
+        };
+    }
+}
 
 #[derive(Clone, Component, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum EntryType {
@@ -17,22 +74,11 @@ pub enum EntryType {
 
 impl EntryType {
     pub(crate) fn get_char(&self) -> char {
-        cfg_if! {
-            if #[cfg(feature = "emoji")] {
-                match self {
-                    Self::Directory => '📁',
-                    Self::File => '📄',
-                    Self::Symlink => '🔗',
-                    Self::Unknown => '❓',
-                }
-            } else {
-                match self {
-                    Self::Directory => 'd',
-                    Self::File => 'f',
-                    Self::Symlink => 's',
-                    Self::Unknown => 'u',
-                }
-            }
+        match self {
+            Self::Directory => ICON_CONFIG.fs.directory,
+            Self::File => ICON_CONFIG.fs.file,
+            Self::Symlink => ICON_CONFIG.fs.symlink,
+            Self::Unknown => ICON_CONFIG.fs.unknown,
         }
     }
 }
@@ -107,6 +153,9 @@ struct ResolvedEntry {
     entry_type: EntryTypeData,
 }
 
+#[derive(Clone, Copy, Debug, Default, Event)]
+pub struct CurrentDirectoryChanged;
+
 fn startup_fs_plugin(mut commands: Commands) -> std::result::Result<(), io::Error> {
     let path = current_dir()?;
     let task = IoTaskPool::get().spawn({
@@ -172,8 +221,20 @@ fn poll_loader_tasks(
 }
 
 pub fn fs_plugin(app: &mut App) {
-    // fs does not wait for ui
-
-    app.add_systems(Startup, startup_fs_plugin.pipe(log_error_fn))
-        .add_systems(Update, poll_loader_tasks);
+    app.insert_resource(CurrentDirectory::from(
+        current_dir().expect("no current working directory?!"),
+    ))
+    .add_event::<CurrentDirectoryChanged>()
+    .add_systems(
+        Startup,
+        // fs does not wait for ui
+        startup_fs_plugin.pipe(log_error_fn),
+    )
+    .add_systems(
+        Update,
+        (
+            poll_loader_tasks,
+            send_event_fn(CurrentDirectoryChanged).run_if(resource_changed::<CurrentDirectory>),
+        ),
+    );
 }

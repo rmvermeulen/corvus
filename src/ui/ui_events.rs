@@ -1,7 +1,5 @@
 use bevy::utils::default;
 
-use crate::prelude::Event;
-
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ViewStateReset;
 
@@ -10,9 +8,6 @@ pub struct UpdatePreview;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct UpdateCurrentDirectory;
-
-#[derive(Clone, Copy, Debug, Default, Event)]
-pub struct CurrentDirectoryChanged;
 
 #[derive(Clone, Debug, Default)]
 pub struct LocationSelectionUpdated {

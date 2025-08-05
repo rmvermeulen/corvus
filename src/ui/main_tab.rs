@@ -1,22 +1,18 @@
 use std::env;
-use std::fs::read_to_string;
-use std::path::Path;
 
-use bevy::asset::RenderAssetUsages;
-use bevy::color::palettes::css;
-use bevy::image::{CompressedImageFormats, ImageType};
 use bevy::prelude::*;
-use bevy::tasks::futures_lite::io;
 use bevy::ui::RelativeCursorPosition;
 use bevy_cobweb::prelude::*;
 use bevy_cobweb_ui::prelude::*;
 use itertools::Itertools;
 
 use crate::fs::EntryType;
-use crate::resources::{CurrentDirectory, PreviewPath};
+use crate::resources::CurrentDirectory;
 use crate::traits::PathChecksExt;
 use crate::ui::ui_events::{LocationSelectionUpdated, UpdateCurrentDirectory, UpdatePreview};
 use crate::ui::{ExplorerCommand, broadcast_fn};
+
+pub mod preview;
 
 fn setup_location_text<'a>(location: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
     assert!(location.path_ends_with(&["location"]));
@@ -201,94 +197,6 @@ pub fn init_main_tab<'a>(sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
             });
     }
 
-    #[derive(Clone, Copy, Debug)]
-    enum PreviewMode<'a> {
-        Text,
-        Image(&'a str),
-        // TODO: Binary,
-    }
-
-    sh.get("content::preview").update_on(
-        broadcast::<UpdatePreview>(),
-        |id: TargetId,
-         mut commands: Commands,
-         preview_path: Res<PreviewPath>,
-         mut images: ResMut<Assets<Image>>| {
-            commands.entity(*id).despawn_related::<Children>();
-            info!("content::preview {preview_path:?}");
-            if let Some(path) = (*preview_path).as_ref() {
-                let preview_mode = path
-                    .extension()
-                    .and_then(|ext| ext.to_str())
-                    .and_then(|ext| {
-                        matches!(ext, "png" | "jpg" | "webp").then_some(PreviewMode::Image(ext))
-                    })
-                    .unwrap_or(PreviewMode::Text);
-
-                #[derive(Debug, thiserror::Error)]
-                enum ImageError {
-                    #[error("io::Error: {0}")]
-                    Io(#[from] io::Error),
-                    #[error("TextureError: {0}")]
-                    Texture(#[from] TextureError),
-                }
-
-                fn read_as_text<'a, P: AsRef<Path>>(
-                    path: P,
-                    mut builder: UiBuilder<'a, Entity>,
-                ) -> io::Result<()> {
-                    read_to_string(path).map(move |text| {
-                        builder.spawn(Text::new(text));
-                    })
-                }
-
-                fn read_as_image<'a, P: AsRef<Path>>(
-                    path: P,
-                    ext: &str,
-                    images: &mut Assets<Image>,
-                    mut builder: UiBuilder<'a, Entity>,
-                ) -> Result<(), ImageError> {
-                    std::fs::read(path)
-                        .map_err(ImageError::from)
-                        .and_then(|bytes| {
-                            Image::from_buffer(
-                                &bytes,
-                                ImageType::Extension(ext),
-                                CompressedImageFormats::default(),
-                                false,
-                                bevy::image::ImageSampler::Default,
-                                RenderAssetUsages::RENDER_WORLD,
-                            )
-                            .map_err(ImageError::from)
-                        })
-                        .map(move |image| {
-                            let image = images.add(image);
-                            builder.spawn(ImageNode::new(image));
-                        })
-                }
-
-                fn read_as_binary<'a, P: AsRef<Path>>(
-                    _path: P,
-                    mut _builder: UiBuilder<'a, Entity>,
-                ) -> Result<(), ImageError> {
-                    todo!("read_as_binary using xxd")
-                }
-
-                match preview_mode {
-                    PreviewMode::Text => {
-                        read_as_text(path, commands.ui_builder(*id)).map_err(Into::into)
-                    }
-                    PreviewMode::Image(ext) => {
-                        read_as_image(path, ext, &mut images, commands.ui_builder(*id))
-                    }
-                }
-                // TODO: .or_else(|_| read_as_binary(path, commands.ui_builder(*id)))
-                .unwrap_or_else(move |error| {
-                    commands
-                        .ui_builder(*id)
-                        .spawn((Text::new(format!("{error}")), TextColor::from(css::RED)));
-                });
-            }
-        },
-    );
+    sh.get("content::preview::scroll::view_shim::view::shim")
+        .update_on(broadcast::<UpdatePreview>(), preview::update_preview);
 }

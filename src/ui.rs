@@ -2,11 +2,12 @@ use std::env;
 use std::io::ErrorKind;
 use std::time::Duration;
 
+use crate::fs::CurrentDirectoryChanged;
 use crate::loading_screen::loading_screen_plugin;
 use crate::prelude::*;
 use crate::resources::{CurrentDirectory, PanelLayout};
 use crate::traits::{ChangeTabExt, PathChecksExt};
-use crate::ui::ui_events::{CurrentDirectoryChanged, UpdateCurrentDirectory, ViewStateReset};
+use crate::ui::ui_events::{UpdateCurrentDirectory, ViewStateReset};
 use crate::ui::view_state::{ViewState, view_state_plugin};
 use crate::{LocationHistory, PreviewPath};
 
@@ -286,10 +287,6 @@ pub fn ui_plugin(app: &mut App) {
     app.add_plugins(CobwebUiPlugin)
         .load("cobweb/manifest.cob")
         .add_plugins((loading_screen_plugin, view_state_plugin))
-        .insert_resource(CurrentDirectory::from(
-            std::env::current_dir().unwrap_or_default(),
-        ))
-        .add_event::<CurrentDirectoryChanged>()
         .add_sub_state::<AppTab>()
         .init_resource::<PanelLayout>()
         .init_resource::<LocationHistory>()
@@ -302,11 +299,11 @@ pub fn ui_plugin(app: &mut App) {
                 (
                     // re-build tab
                     broadcast_fn(AppCommand::ChangeTab(AppTab::Main)),
-                    send_event_fn(CurrentDirectoryChanged),
+                    // clear whatever is the preview path
+                    clear_preview_path,
                 )
-                    .run_if(resource_changed::<CurrentDirectory>),
+                    .run_if(on_event::<CurrentDirectoryChanged>),
                 broadcast_fn(ui_events::UpdatePreview).run_if(resource_changed::<PreviewPath>),
-                clear_preview_path.run_if(on_event::<CurrentDirectoryChanged>),
             ),
         )
         .add_systems(OnEnter(ViewState::Stable), build_ui)
