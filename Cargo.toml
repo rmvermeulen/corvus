@@ -13,7 +13,7 @@ async = ["bevy/multi_threaded", "dep:rayon"]
 
 [dependencies]
 bevy_cobweb = "0.17.2"
-bevy_cobweb_ui = { version = "0.21.0", features = [
+bevy_cobweb_ui = { version = "0.21.1", features = [
     "hot_reload",
     "widgets",
     "colors",
