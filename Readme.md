@@ -1,5 +1,7 @@
 # corvus
 
+![A drawing of a crow](./assets/images/corvus.png)
+
 A basic visual file explorer built on [bevy](https://www.bevy.org) and [cobweb-ui](https://github.com/UkoeHB/bevy_cobweb_ui).
 
 <!--toc:start-->
