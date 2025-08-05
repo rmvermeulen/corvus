@@ -1,6 +1,6 @@
 # corvus
 
-![A drawing of a crow](./assets/images/corvus.png)
+<img src="./assets/images/corvus.png" alt="A drawing of a crow I made" width="200"/>
 
 A basic visual file explorer built on [bevy](https://www.bevy.org) and [cobweb-ui](https://github.com/UkoeHB/bevy_cobweb_ui).
 
