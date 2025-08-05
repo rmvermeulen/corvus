@@ -1,14 +1,53 @@
 #import
 colors as colors
+builtin.colors.tailwind as tw
 
 #defs
 
 +bg_anim = \
     Animated<BackgroundColor>{
-        idle:  $colors::bg_idle
-        hover: $colors::bg_hover
-        press: $colors::bg_press
+        idle:  $tw::GRAY_500
+        hover: $tw::GRAY_300
+        press: $tw::GRAY_700
     }
+\
+
++text_anim = \
+    Animated<TextLineColor>{
+        idle:  #FFFFFF
+        hover: #888888
+        press: #FFFFFF
+    }
+\
+
++tab_bg_anim = \
+    Multi<Animated<BackgroundColor>>[
+        {
+            state: [Selected]
+            idle:  $tw::YELLOW_600
+            hover: $tw::YELLOW_300
+            press: $tw::YELLOW_500
+        },
+        {
+            idle:  $tw::BLUE_600
+            hover: $tw::BLUE_300
+            press: $tw::BLUE_500
+        }
+    ]
+\
+
++tab_text_anim = \
+    Multi<Animated<TextLineColor>>[
+        {
+            idle:  #FFFFFF
+            hover: #888888
+        },
+        {
+            state: [Selected]
+            idle:  #FFFFFF
+            hover: #888888
+        }
+    ]
 \
 
 +button = \
@@ -16,24 +55,26 @@ colors as colors
     BrRadius(8px)
     Marker::Button
     // BackgroundColor($colors::tertiary)
+    ControlRoot
     "text"
+        ControlMember
         Splat<Margin>(auto)
-        TextLineColor($colors::text_idle)
+        +text_anim{}
         TextLine{text:"[button]"}
 \
 
 +selected_bg_anim = \
     Multi<Animated<BackgroundColor>>[
         {
-            idle:  $colors::bg_idle
-            hover: $colors::bg_hover
-            press: $colors::bg_press
+            idle:  $tw::GRAY_300
+            hover: $tw::GRAY_500
+            press: $tw::GRAY_700
         }
         {
             state: [Selected]
-            idle:  $colors::bg_selected_idle
-            hover: $colors::bg_selected_hover
-            press: $colors::bg_selected_press
+            idle:  $tw::GRAY_400
+            hover: $tw::GRAY_600
+            press: $tw::GRAY_800
         }
     ]
 \
@@ -92,19 +133,11 @@ colors as colors
     RadioButton
     Marker::Button
     FlexNode{justify_main:Center}
-    Multi<Animated<BackgroundColor>>[
-        {
-            idle: Hsla{ hue:221 saturation:0.5 lightness:0.05 alpha:0.5 }
-            hover: Hsla{ hue:21 saturation:0.7 lightness:0.05 alpha:0.5 }
-        }
-        {
-            state: [Selected]
-            idle: Hsla{ hue:221 saturation:0.5 lightness:0.20 alpha:0.5 }
-            hover: Hsla{ hue:21 saturation:0.7 lightness:0.20 alpha:0.5 }
-        }
-    ]
+    +tab_bg_anim{}
+    ControlRoot
     "text"
-        TextLineColor(Hsla{ hue:60 saturation:0.85 lightness:0.90 alpha:1.0 })
+        ControlMember
+        +text_anim{}
         TextLine{text:"[tab button]"}
 \
 
