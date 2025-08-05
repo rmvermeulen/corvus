@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+set -e
+
+# will exit on unstaged changes for now
+cargo clippy --fix --allow-staged
+cargo fmt
+
+# add everything, since there were no unstaged changes
+git add .
+
+# only add previously staged files
+# git update-index --again
+
