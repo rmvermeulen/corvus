@@ -19,7 +19,7 @@ pub fn send_event_fn<E: Event + Clone + Send + Sync + 'static>(
     value: E,
 ) -> impl Fn(EventWriter<E>) {
     move |mut writer: EventWriter<E>| {
-        writer.send(value.clone());
+        writer.write(value.clone());
     }
 }
 
@@ -80,10 +80,17 @@ pub(crate) enum AppCommand {
 fn setup_tab_buttons<'a>(
     sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>,
 ) -> std::result::Result<(), IgnoredError> {
-    sh.get("main").on_select(|mut commands: Commands| {
-        // TODO: something useful
-        commands.change_tab(AppTab::Main);
-    });
+    sh.get("main")
+        .on_select(|mut commands: Commands| {
+            // TODO: something useful
+            commands.change_tab(AppTab::Main);
+        })
+        .update(
+            // select main tab by default
+            move |id: TargetId, mut commands: Commands| {
+                commands.react().entity_event(*id, Select);
+            },
+        );
     sh.get("settings").on_select(|mut commands: Commands| {
         commands.change_tab(AppTab::Settings);
     });
@@ -144,6 +151,7 @@ fn update_tab_content_on_app_command(
                     );
                 }
             }
+
             next_app_tab.set(*tab);
         }
     }
@@ -158,12 +166,12 @@ pub fn build_ui(
 ) {
     commands
         .ui_root()
-        .spawn_scene(("main", "root"), &mut scene_builder, |sh| {
-            setup_footer(&mut sh.get("footer"), &mut first_load_time, &time);
+        .spawn_scene(("main", "root"), &mut scene_builder, |root| {
+            setup_footer(&mut root.get("footer"), &mut first_load_time, &time);
 
-            sh.edit("tab_buttons", setup_tab_buttons);
+            root.edit("tab_buttons", setup_tab_buttons);
 
-            sh.get("tab_content")
+            root.get("tab_content")
                 .update_on(broadcast::<AppCommand>(), update_tab_content_on_app_command)
                 .update_on(
                     broadcast::<ExplorerCommand>(),
@@ -171,9 +179,9 @@ pub fn build_ui(
                 );
 
             let tab = *active_tab.get();
-            sh.react().broadcast(AppCommand::ChangeTab(tab));
+            root.react().broadcast(AppCommand::ChangeTab(tab));
 
-            sh.despawn_on_broadcast::<ViewStateReset>();
+            root.despawn_on_broadcast::<ViewStateReset>();
         });
 }
 
