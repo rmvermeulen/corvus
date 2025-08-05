@@ -1,7 +1,8 @@
 [package]
-name = "cobweb-starter"
+name = "corvus"
 version = "0.1.0"
 edition = "2024"
+description = "File explorer using bevy and bevy_cobweb_ui"
 
 [lib]
 

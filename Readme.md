@@ -1,21 +1,15 @@
-# cobweb-starter
+# corvus
 
-A simple [bevy](https://www.bevy.org) project with a bare-bones [cobweb-ui](https://github.com/UkoeHB/bevy_cobweb_ui)
-interface to get started.
+A basic visual file explorer built on [bevy](https://www.bevy.org) and [cobweb-ui](https://github.com/UkoeHB/bevy_cobweb_ui).
 
 <!--toc:start-->
 
-- [cobweb-starter](#cobweb-starter)
-  - [explorer](#explorer)
-    - [Features](#features)
+- [corvus](#corvus)
+  - [Features](#features)
 
 <!--toc:end-->
 
-## explorer
-
-A basic visual file explorer.
-
-### Features
+## Features
 
 Application:
 
@@ -32,7 +26,7 @@ Explorer:
 
 - [ ] preview file content
   - [x] text
-  - [ ] images
+  - [x] images
   - [ ] binary
 - [ ] drag-and-drop files onto the app
 - [ ] drag-and-drop files from the app
@@ -46,6 +40,7 @@ Navigation:
 - [x] navigation history
   - [x] go back button
   - [x] go forward button
+  - [ ] see history
 
 Bookmarks:
 

@@ -15,8 +15,7 @@ use itertools::Itertools;
 use crate::fs::EntryType;
 use crate::resources::{CurrentDirectory, PreviewPath};
 use crate::traits::PathChecksExt;
-use crate::ui::ui_events::{CurrentDirectoryChanged, LocationSelectionUpdated,
-                           UpdateCurrentDirectory, UpdatePreview};
+use crate::ui::ui_events::{LocationSelectionUpdated, UpdateCurrentDirectory, UpdatePreview};
 use crate::ui::{ExplorerCommand, broadcast_fn};
 
 fn setup_location_text<'a>(location: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {

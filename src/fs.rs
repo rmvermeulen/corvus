@@ -1,11 +1,9 @@
 use std::env::current_dir;
-use std::fs::{FileType, ReadDir, read_dir, read_link};
+use std::fs::{FileType, read_dir, read_link};
 use std::io;
 
-use bevy::tasks::futures_lite::FutureExt;
 use bevy::tasks::{IoTaskPool, Task, block_on, poll_once};
 use rayon::iter::ParallelIterator;
-use rayon::prelude::IntoParallelIterator;
 
 use crate::prelude::*;
 
