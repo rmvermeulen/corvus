@@ -6,6 +6,11 @@ description = "File explorer using bevy and bevy_cobweb_ui"
 
 [lib]
 
+[workspace]
+resolver = "3"
+members = [".", "cobble"]
+default-members = ["."]
+
 [features]
 default = ["async"]
 emoji = []
@@ -35,6 +40,9 @@ thiserror = "2.0.12"
 default-features = false
 features = ["x11"]
 version = "0.16.1"
+
+[build-dependencies]
+cobble = { path = "cobble" }
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

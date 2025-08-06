@@ -1554,6 +1554,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "cobble"
+version = "0.1.0"
+
+[[package]]
 name = "cobweb_asset_format"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1730,6 +1734,7 @@ dependencies = [
  "bevy_cobweb",
  "bevy_cobweb_ui",
  "cfg-if",
+ "cobble",
  "const_format",
  "derive_more 2.0.1",
  "itertools 0.14.0",
