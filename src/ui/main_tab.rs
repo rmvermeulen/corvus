@@ -1,4 +1,5 @@
 use std::env;
+use std::ffi::OsStr;
 
 use bevy::prelude::*;
 use bevy::ui::RelativeCursorPosition;
@@ -167,15 +168,39 @@ pub fn init_main_tab<'a>(sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
             }
             _ => None,
         };
+
         sh.get("content::overview::items")
+            .spawn_scene(("widgets", "button"), |sh| {
+                sh.on_pressed(|| {
+                    info!("overview-item[icon]: on_pressed not implemented!");
+                });
+                let icon = entry_type.get_icon();
+                sh.get("text").update_text(format!("[{icon}]"));
+            })
             .spawn_scene(("widgets", "button"), |sh| {
                 sh.insert(entry_type);
                 if let Some(menu_command) = menu_command {
                     sh.on_pressed(broadcast_fn(menu_command));
                 }
-                let label = path.to_string_lossy();
-                sh.get("text")
-                    .update_text(format!("[{}] {label}", entry_type.get_char()));
+                if let Some(name) = path.file_stem().map(OsStr::to_string_lossy) {
+                    sh.get("text").update_text(name);
+                } else {
+                    // text still impacts width
+                    sh.get("text").update_text("");
+                    sh.insert(Visibility::Hidden);
+                }
+            })
+            .spawn_scene(("widgets", "button"), |sh| {
+                sh.on_pressed(|| {
+                    info!("overview-item[ext]: on_pressed not implemented!");
+                });
+                if let Some(ext) = path.extension().map(OsStr::to_string_lossy) {
+                    sh.get("text").update_text(ext);
+                } else {
+                    // text still impacts width
+                    sh.get("text").update_text("");
+                    sh.insert(Visibility::Hidden);
+                }
             });
     }
 

@@ -73,7 +73,7 @@ pub enum EntryType {
 }
 
 impl EntryType {
-    pub(crate) fn get_char(&self) -> char {
+    pub(crate) fn get_icon(&self) -> char {
         match self {
             Self::Directory => ICON_CONFIG.fs.directory,
             Self::File => ICON_CONFIG.fs.file,
@@ -221,6 +221,7 @@ fn poll_loader_tasks(
 }
 
 pub fn fs_plugin(app: &mut App) {
+    // TODO: interact with ui_plugin
     app.insert_resource(CurrentDirectory::from(
         current_dir().expect("no current working directory?!"),
     ))

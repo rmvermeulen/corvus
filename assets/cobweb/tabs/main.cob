@@ -87,7 +87,12 @@ $scroll_gutter_color = #BBBBBB
             FlexNode{flex_direction:Column}
             Splat<Padding>(4px)
             "items"
-                FlexNode{flex_direction:Column row_gap:4px}
+                GridNode{
+                    grid_auto_rows:        [30px]
+                    grid_template_columns: [30px MaxContent MinContent]
+                    row_gap:               4px
+                    column_gap:            4px
+                }
         "preview"
             FlexNode{
                 height:             100%
