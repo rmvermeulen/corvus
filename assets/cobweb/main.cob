@@ -16,6 +16,7 @@ colors as colors
     //Actual tab menu
     "tab_buttons"
         +widgets::tab_menu{
+            // TODO: set based on model
             "main"
                 +widgets::tab_button{
                     "text"

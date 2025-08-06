@@ -82,14 +82,13 @@ $scroll_gutter_color = #BBBBBB
             justify_self_cross: Stretch
         }
         BackgroundColor(#025588)
+        // TODO: a more tabular view
         "overview"
             FlexNode{flex_direction:Column}
             Splat<Padding>(4px)
             "items"
                 FlexNode{flex_direction:Column row_gap:4px}
         "preview"
-            // TODO: vertical scroll
-            // TODO: horizontal scroll
             FlexNode{
                 height:             100%
                 justify_main:       FlexStart
