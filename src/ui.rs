@@ -3,14 +3,15 @@ use std::io::ErrorKind;
 use std::time::Duration;
 
 use crate::fs::CurrentDirectoryChanged;
-use crate::loading_screen::loading_screen_plugin;
 use crate::prelude::*;
 use crate::resources::{CurrentDirectory, PanelLayout};
 use crate::traits::{ChangeTabExt, PathChecksExt};
+use crate::ui::loading_screen::loading_screen_plugin;
 use crate::ui::ui_events::ViewStateReset;
 use crate::ui::view_state::{ViewState, view_state_plugin};
 use crate::{LocationHistory, PreviewPath};
 
+mod loading_screen;
 mod main_tab;
 mod settings_tab;
 mod ui_events;

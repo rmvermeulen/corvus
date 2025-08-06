@@ -4,7 +4,6 @@ use crate::resources::{LocationHistory, PreviewPath};
 use crate::ui::ui_plugin;
 
 mod fs;
-mod loading_screen;
 mod resources;
 mod traits;
 mod ui;
