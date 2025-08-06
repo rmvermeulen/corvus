@@ -1,6 +1,6 @@
 use bevy::app::App;
-use corvus::explorer_plugin;
+use corvus::corvus_plugin;
 
 fn main() {
-    App::new().add_plugins(explorer_plugin).run();
+    App::new().add_plugins(corvus_plugin).run();
 }

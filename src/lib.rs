@@ -32,6 +32,6 @@ mod prelude {
 /// }
 ///```
 
-pub fn explorer_plugin(app: &mut App) {
+pub fn corvus_plugin(app: &mut App) {
     app.add_plugins((DefaultPlugins, fs_plugin, ui_plugin));
 }
