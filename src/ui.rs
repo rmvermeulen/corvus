@@ -7,7 +7,7 @@ use crate::loading_screen::loading_screen_plugin;
 use crate::prelude::*;
 use crate::resources::{CurrentDirectory, PanelLayout};
 use crate::traits::{ChangeTabExt, PathChecksExt};
-use crate::ui::ui_events::{UpdateCurrentDirectory, ViewStateReset};
+use crate::ui::ui_events::ViewStateReset;
 use crate::ui::view_state::{ViewState, view_state_plugin};
 use crate::{LocationHistory, PreviewPath};
 
@@ -140,9 +140,6 @@ fn update_tab_content_on_app_command(
                         &mut scene_builder,
                         main_tab::init_main_tab,
                     );
-                    // show the current directory
-                    commands.react().broadcast(UpdateCurrentDirectory);
-                    // commands.
                 }
                 AppTab::Settings => {
                     commands.ui_builder(id).spawn_scene(

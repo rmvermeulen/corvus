@@ -9,7 +9,7 @@ use itertools::Itertools;
 use crate::fs::EntryType;
 use crate::resources::CurrentDirectory;
 use crate::traits::PathChecksExt;
-use crate::ui::ui_events::{LocationSelectionUpdated, UpdateCurrentDirectory, UpdatePreview};
+use crate::ui::ui_events::{LocationSelectionUpdated, UpdateLocationText, UpdatePreview};
 use crate::ui::{ExplorerCommand, broadcast_fn};
 
 pub mod preview;
@@ -83,7 +83,7 @@ fn setup_location_text<'a>(location: &mut SceneHandle<'a, UiBuilder<'a, Entity>>
             },
         )
         .update_on(
-            broadcast::<UpdateCurrentDirectory>(),
+            broadcast::<UpdateLocationText>(),
             |_: TargetId, mut commands: Commands, current_directory: Res<CurrentDirectory>| {
                 let cwd = current_directory.to_string();
                 commands
@@ -91,36 +91,30 @@ fn setup_location_text<'a>(location: &mut SceneHandle<'a, UiBuilder<'a, Entity>>
                     .broadcast(LocationSelectionUpdated::new_no_selection(cwd));
             },
         );
-    location.get("before").update_on(
-        broadcast::<LocationSelectionUpdated>(),
-        |id: TargetId,
-         bce: BroadcastEvent<LocationSelectionUpdated>,
-         mut text_editor: TextEditor| {
-            if let Ok(ev) = bce.try_read() {
-                write_text!(text_editor, *id, "{}", ev.before);
-            }
-        },
-    );
-    location.get("selected").update_on(
-        broadcast::<LocationSelectionUpdated>(),
-        |id: TargetId,
-         bce: BroadcastEvent<LocationSelectionUpdated>,
-         mut text_editor: TextEditor| {
-            if let Ok(ev) = bce.try_read() {
-                write_text!(text_editor, *id, "{}", ev.selected);
-            }
-        },
-    );
-    location.get("after").update_on(
-        broadcast::<LocationSelectionUpdated>(),
-        |id: TargetId,
-         bce: BroadcastEvent<LocationSelectionUpdated>,
-         mut text_editor: TextEditor| {
-            if let Ok(ev) = bce.try_read() {
-                write_text!(text_editor, *id, "{}", ev.after);
-            }
-        },
-    );
+
+    fn update_text_fragment<'a>(
+        mut handle: SceneHandle<'a, UiBuilder<'a, Entity>>,
+        get_text: impl Fn(&LocationSelectionUpdated) -> &String + Send + Sync + 'static,
+    ) {
+        handle.update_on(
+            broadcast::<LocationSelectionUpdated>(),
+            move |id: TargetId,
+                  broadcast_event: BroadcastEvent<LocationSelectionUpdated>,
+                  mut text_editor: TextEditor| {
+                if let Ok(ev) = broadcast_event.try_read() {
+                    write_text!(text_editor, *id, "{}", get_text(ev));
+                }
+            },
+        );
+    }
+
+    update_text_fragment(location.get("before"), |ev| &ev.before);
+    update_text_fragment(location.get("selected"), |ev| &ev.selected);
+    update_text_fragment(location.get("after"), |ev| &ev.after);
+
+    location.update(|_: TargetId, mut commands: Commands| {
+        commands.react().broadcast(UpdateLocationText);
+    });
 }
 
 fn setup_navigation<'a>(navigation: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
@@ -133,26 +127,14 @@ fn setup_navigation<'a>(navigation: &mut SceneHandle<'a, UiBuilder<'a, Entity>>)
         ("reload_button", ExplorerCommand::Reload),
     ];
 
-    #[cfg(feature = "emoji")]
-    let configs = configs
-        .into_iter()
-        .zip([
-            "🔙", // back
-            "🔜", // next
-            "🔜", // up
-            "🔄", // reload
-        ])
-        .map(|((a, b), c)| (a, b, c));
-
-    for config in configs {
-        let mut button = navigation.get(config.0);
-        button.on_pressed(move |mut commands: Commands| {
-            let command = config.1.clone();
-            info!("{command:?}");
-            commands.react().broadcast(command);
-        });
-        #[cfg(feature = "emoji")]
-        button.update_text(config.2);
+    for (name, explorer_command) in configs {
+        navigation
+            .get(name)
+            .on_pressed(move |mut commands: Commands| {
+                let explorer_command = explorer_command.clone();
+                info!("{explorer_command:?}");
+                commands.react().broadcast(explorer_command);
+            });
     }
     setup_location_text(&mut navigation.get("location"));
 }
