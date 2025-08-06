@@ -3,6 +3,8 @@ use crate::prelude::*;
 use crate::resources::{LocationHistory, PreviewPath};
 use crate::ui::ui_plugin;
 
+#[cfg(debug_assertions)]
+mod cobweb_warning_subscriber;
 mod fs;
 mod resources;
 mod traits;
@@ -33,5 +35,13 @@ mod prelude {
 ///```
 
 pub fn corvus_plugin(app: &mut App) {
-    app.add_plugins((DefaultPlugins, fs_plugin, ui_plugin));
+    cfg_if! {
+        if #[cfg(debug_assertions)] {
+            let log_plugin =cobweb_warning_subscriber:: get_log_plugin();
+        } else {
+            let log_plugin = LogPlugin::default();
+        }
+    }
+    app.add_plugins(DefaultPlugins.set(log_plugin))
+        .add_plugins((fs_plugin, ui_plugin));
 }
