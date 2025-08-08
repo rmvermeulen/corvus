@@ -34,10 +34,6 @@ fn main() {
 
     let cobweb_entries =
         get_cobweb_entries("assets/cobweb/", None).expect("get_cobweb_entries failed");
-
-    // TODO: generate embed-macros for manifest files in release mode
-    // for e in cobweb_entries { bevy_cobweb_UI::load_embedded_scene_file }
-
     let manifest = get_cobweb_manifest(cobweb_entries);
     update_manifest_if_changed("assets/cobweb/manifest.cob", manifest)
         .expect("update_cobweb_manifest failed");
