@@ -7,7 +7,13 @@ pub struct ViewStateReset;
 pub struct UpdatePreview;
 
 #[derive(Clone, Copy, Debug, Default)]
+pub struct ClearLocationText;
+
+#[derive(Clone, Copy, Debug, Default)]
 pub struct UpdateLocationText;
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct UpdateOverview;
 
 #[derive(Clone, Debug, Default)]
 pub struct LocationSelectionUpdated {

@@ -1,10 +1,8 @@
-use std::env;
-use std::io::ErrorKind;
 use std::time::Duration;
 
-use crate::fs::CurrentDirectoryChanged;
+use crate::bridge::{CurrentDirectoryChanged, DirectoryChangeRequest};
 use crate::prelude::*;
-use crate::resources::{CurrentDirectory, PanelLayout};
+use crate::resources::{CurrentDirectory, DirectoryEntries, PanelLayout};
 use crate::traits::{ChangeTabExt, PathChecksExt};
 use crate::ui::loading_screen::loading_screen_plugin;
 use crate::ui::ui_events::ViewStateReset;
@@ -187,7 +185,7 @@ pub fn build_ui(
 fn update_explorer_on_explorer_command(
     _: TargetId,
     broadcast_event: BroadcastEvent<ExplorerCommand>,
-    mut current_directory: ResMut<CurrentDirectory>,
+    current_directory: Res<CurrentDirectory>,
     mut location_history: ResMut<LocationHistory>,
     mut commands: Commands,
 ) {
@@ -196,54 +194,15 @@ fn update_explorer_on_explorer_command(
     };
     info!("{event:?}");
 
-    fn set_directory(
-        path: &Path,
-        current_directory: &mut CurrentDirectory,
-        location_history: Option<&mut LocationHistory>,
-        commands: &mut Commands,
-    ) {
-        let path: PathBuf = if !path.is_absolute() {
-            current_directory.join(path)
-        } else {
-            path.to_owned()
-        }
-        .canonicalize()
-        .expect("path cannot be canonicalized");
-        if path == **current_directory {
-            return;
-        }
-        info!("SetDirectory {path:?}");
-        match env::set_current_dir(&path) {
-            Ok(_) => {
-                if let Some(history) = location_history {
-                    history.back.push(current_directory.clone());
-                }
-                **current_directory = path.clone();
-            }
-            Err(e) => {
-                if e.kind() == ErrorKind::NotADirectory {
-                    info!("not a directory, opening as preview");
-                    commands
-                        .react()
-                        .broadcast(ExplorerCommand::SetPreview(Some(path)));
-                } else {
-                    warn!("SetDirectory({path:?}) ERROR: {e:?}")
-                }
-            }
-        };
-    }
-
     match event {
         ExplorerCommand::Reload => {
             commands.change_tab(AppTab::Main);
         }
         ExplorerCommand::SetDirectory(path) => {
-            set_directory(
-                path,
-                &mut current_directory,
-                Some(&mut location_history),
-                &mut commands,
-            );
+            {
+                let commands: &mut Commands = &mut commands;
+                commands.send_event(DirectoryChangeRequest::from(path));
+            };
         }
         ExplorerCommand::SetPreview(preview_path) => {
             commands.insert_resource(PreviewPath::from(
@@ -255,23 +214,18 @@ fn update_explorer_on_explorer_command(
         ExplorerCommand::HistoryBack => {
             if let Some(prev) = location_history.back.pop() {
                 location_history.next.insert(0, current_directory.clone());
-                set_directory(&prev, &mut current_directory, None, &mut commands);
+                commands.send_event(DirectoryChangeRequest::from(prev));
             }
         }
         ExplorerCommand::HistoryNext => {
             if let Some(next) = location_history.next.pop() {
                 location_history.back.push(current_directory.clone());
-                set_directory(&next, &mut current_directory, None, &mut commands);
+                commands.send_event(DirectoryChangeRequest::from(next));
             }
         }
         ExplorerCommand::GotoParent => {
             if let Some(parent) = current_directory.parent().map(Path::to_owned) {
-                set_directory(
-                    &parent,
-                    &mut current_directory,
-                    Some(&mut location_history),
-                    &mut commands,
-                );
+                commands.send_event(DirectoryChangeRequest::from(parent));
             };
         }
     }
@@ -302,6 +256,8 @@ pub fn ui_plugin(app: &mut App) {
                 )
                     .run_if(on_event::<CurrentDirectoryChanged>),
                 broadcast_fn(ui_events::UpdatePreview).run_if(resource_changed::<PreviewPath>),
+                broadcast_fn(ui_events::UpdateOverview)
+                    .run_if(resource_changed::<DirectoryEntries>),
             ),
         )
         .add_systems(OnEnter(ViewState::Stable), build_ui)

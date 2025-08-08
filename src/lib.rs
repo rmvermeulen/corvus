@@ -1,8 +1,10 @@
+use crate::bridge::bridge_plugin;
 use crate::fs::fs_plugin;
 use crate::prelude::*;
 use crate::resources::{LocationHistory, PreviewPath};
 use crate::ui::ui_plugin;
 
+mod bridge;
 #[cfg(debug_assertions)]
 mod cobweb_warning_subscriber;
 pub mod config;
@@ -44,5 +46,6 @@ pub fn corvus_plugin(app: &mut App) {
         }
     }
     app.add_plugins(DefaultPlugins.set(log_plugin))
+        .add_plugins(bridge_plugin)
         .add_plugins((fs_plugin, ui_plugin));
 }

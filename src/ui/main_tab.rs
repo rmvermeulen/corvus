@@ -9,9 +9,10 @@ use itertools::Itertools;
 
 use crate::config::ICON_CONFIG;
 use crate::fs::EntryType;
-use crate::resources::CurrentDirectory;
+use crate::resources::{CurrentDirectory, DirectoryEntries};
 use crate::traits::{PathChecksExt, WithUiIcon};
-use crate::ui::ui_events::{LocationSelectionUpdated, UpdateLocationText, UpdatePreview};
+use crate::ui::ui_events::{LocationSelectionUpdated, UpdateLocationText, UpdateOverview,
+                           UpdatePreview};
 use crate::ui::{ExplorerCommand, broadcast_fn};
 
 pub mod preview;
@@ -167,62 +168,70 @@ pub fn init_main_tab<'a>(sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
     info!("init_main_tab ({:?})", env::current_dir());
     setup_header(&mut sh.get("header"));
 
-    // TODO: async io (queue?)
-    // TODO: independent of ui
-    for (entry_type, entry) in std::fs::read_dir(".")
-        .unwrap()
-        .filter_map(Result::ok)
-        .map(|entry| {
-            let ft = entry.file_type().unwrap();
-            (EntryType::from(ft), entry)
-        })
-        .sorted_by_key(|pair| pair.0)
-    {
-        let path = entry.path();
-        let menu_command = match entry_type {
-            EntryType::File => Some(ExplorerCommand::SetPreview(Some(path.clone()))),
-            EntryType::Directory | EntryType::Symlink => {
-                Some(ExplorerCommand::SetDirectory(path.clone()))
-            }
-            _ => None,
-        };
+    sh.get("content::overview::items").update_on(
+        broadcast::<UpdateOverview>(),
+        |id: TargetId,
+         mut commands: Commands,
+         mut scene_builder: SceneBuilder,
+         entries: Res<DirectoryEntries>| {
+            info!("content::overview::items on broadcast UpdateOverview");
+            commands.entity(*id).despawn_related::<Children>();
 
-        sh.get("content::overview::items")
-            // spawn icon button
-            .spawn_scene(("widgets", "button"), |icon_button| {
-                icon_button.on_pressed(|| {
-                    info!("overview-item[icon]: on_pressed not implemented!");
+            let mut entries: Vec<_> = entries.clone();
+            entries.sort();
+
+            for entry in entries {
+                let path = entry.path();
+                let entry_type = entry.entry_type();
+                let menu_command = match entry_type {
+                    EntryType::File => Some(ExplorerCommand::SetPreview(Some(path.to_owned()))),
+                    EntryType::Directory | EntryType::Symlink => {
+                        Some(ExplorerCommand::SetDirectory(path.to_owned()))
+                    }
+                    _ => None,
+                };
+                let mut builder = commands.ui_builder(*id);
+                // spawn icon button
+                builder.spawn_scene(("widgets", "button"), &mut scene_builder, |icon_button| {
+                    icon_button.on_pressed(|| {
+                        info!("overview-item[icon]: on_pressed not implemented!");
+                    });
+                    icon_button.get("text").update_text(entry_type.get_icon());
                 });
-                icon_button.get("text").update_text(entry_type.get_icon());
-            })
-            // spawn text button (filename)
-            .spawn_scene(("widgets", "button"), |filename_button| {
-                filename_button.insert(entry_type);
-                if let Some(menu_command) = menu_command {
-                    filename_button.on_pressed(broadcast_fn(menu_command));
-                }
-                if let Some(name) = path.file_stem().map(OsStr::to_string_lossy) {
-                    filename_button.get("text").update_text(name);
-                } else {
-                    // text still impacts width
-                    filename_button.get("text").update_text("");
-                    filename_button.insert(Visibility::Hidden);
-                }
-            })
-            // spawn text button (extension)
-            .spawn_scene(("widgets", "button"), |ext_button| {
-                ext_button.on_pressed(|| {
-                    info!("overview-item[ext]: on_pressed not implemented!");
+                // spawn text button (filename)
+                builder.spawn_scene(
+                    ("widgets", "button"),
+                    &mut scene_builder,
+                    |filename_button| {
+                        filename_button.insert(entry_type);
+                        if let Some(menu_command) = menu_command {
+                            filename_button.on_pressed(broadcast_fn(menu_command));
+                        }
+                        if let Some(name) = path.file_stem().map(OsStr::to_string_lossy) {
+                            filename_button.get("text").update_text(name);
+                        } else {
+                            // text still impacts width
+                            filename_button.get("text").update_text("");
+                            filename_button.insert(Visibility::Hidden);
+                        }
+                    },
+                );
+                // spawn text button (extension)
+                builder.spawn_scene(("widgets", "button"), &mut scene_builder, |ext_button| {
+                    ext_button.on_pressed(|| {
+                        info!("overview-item[ext]: on_pressed not implemented!");
+                    });
+                    if let Some(ext) = path.extension().map(OsStr::to_string_lossy) {
+                        ext_button.get("text").update_text(ext);
+                    } else {
+                        // text still impacts width
+                        ext_button.get("text").update_text("");
+                        ext_button.insert(Visibility::Hidden);
+                    }
                 });
-                if let Some(ext) = path.extension().map(OsStr::to_string_lossy) {
-                    ext_button.get("text").update_text(ext);
-                } else {
-                    // text still impacts width
-                    ext_button.get("text").update_text("");
-                    ext_button.insert(Visibility::Hidden);
-                }
-            });
-    }
+            }
+        },
+    );
 
     sh.get("content::preview::scroll::view_shim::view::shim")
         .update_on(broadcast::<UpdatePreview>(), preview::update_preview);
