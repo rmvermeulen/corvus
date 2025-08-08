@@ -188,35 +188,38 @@ pub fn init_main_tab<'a>(sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
         };
 
         sh.get("content::overview::items")
-            .spawn_scene(("widgets", "button"), |sh| {
-                sh.on_pressed(|| {
+            // spawn icon button
+            .spawn_scene(("widgets", "button"), |icon_button| {
+                icon_button.on_pressed(|| {
                     info!("overview-item[icon]: on_pressed not implemented!");
                 });
-                sh.get("text").update_text(entry_type.get_icon());
+                icon_button.get("text").update_text(entry_type.get_icon());
             })
-            .spawn_scene(("widgets", "button"), |sh| {
-                sh.insert(entry_type);
+            // spawn text button (filename)
+            .spawn_scene(("widgets", "button"), |filename_button| {
+                filename_button.insert(entry_type);
                 if let Some(menu_command) = menu_command {
-                    sh.on_pressed(broadcast_fn(menu_command));
+                    filename_button.on_pressed(broadcast_fn(menu_command));
                 }
                 if let Some(name) = path.file_stem().map(OsStr::to_string_lossy) {
-                    sh.get("text").update_text(name);
+                    filename_button.get("text").update_text(name);
                 } else {
                     // text still impacts width
-                    sh.get("text").update_text("");
-                    sh.insert(Visibility::Hidden);
+                    filename_button.get("text").update_text("");
+                    filename_button.insert(Visibility::Hidden);
                 }
             })
-            .spawn_scene(("widgets", "button"), |sh| {
-                sh.on_pressed(|| {
+            // spawn text button (extension)
+            .spawn_scene(("widgets", "button"), |ext_button| {
+                ext_button.on_pressed(|| {
                     info!("overview-item[ext]: on_pressed not implemented!");
                 });
                 if let Some(ext) = path.extension().map(OsStr::to_string_lossy) {
-                    sh.get("text").update_text(ext);
+                    ext_button.get("text").update_text(ext);
                 } else {
                     // text still impacts width
-                    sh.get("text").update_text("");
-                    sh.insert(Visibility::Hidden);
+                    ext_button.get("text").update_text("");
+                    ext_button.insert(Visibility::Hidden);
                 }
             });
     }
