@@ -82,7 +82,6 @@ $scroll_gutter_color = #BBBBBB
             justify_self_cross: Stretch
         }
         BackgroundColor(#025588)
-        // TODO: a more tabular view
         "overview"
             FlexNode{flex_direction:Column}
             Splat<Padding>(4px)
