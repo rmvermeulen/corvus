@@ -1,3 +1,5 @@
+use smol_str::SmolStr;
+
 use crate::prelude::*;
 use crate::ui::{AppCommand, AppTab};
 
@@ -28,4 +30,8 @@ impl<'w, 's> ChangeTabExt for Commands<'w, 's> {
     fn change_tab(&mut self, tab: AppTab) {
         self.react().change_tab(tab);
     }
+}
+
+pub trait WithUiIcon {
+    fn get_icon(&self) -> SmolStr;
 }

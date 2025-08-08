@@ -3,66 +3,13 @@ use std::fs::{FileType, read_dir, read_link};
 use std::io;
 
 use bevy::tasks::{IoTaskPool, Task, block_on, poll_once};
+use smol_str::SmolStr;
 
+use crate::config::ICON_CONFIG;
 use crate::prelude::{Event, *};
 use crate::resources::CurrentDirectory;
+use crate::traits::WithUiIcon;
 use crate::ui::send_event_fn;
-
-#[derive(Clone, Copy, Debug)]
-pub struct NavigationIconConfig {
-    pub back: char,
-    pub next: char,
-    pub up: char,
-    pub reload: char,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct FsIconConfig {
-    pub file: char,
-    pub directory: char,
-    pub symlink: char,
-    pub unknown: char,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct IconConfig {
-    pub navigation: NavigationIconConfig,
-    pub fs: FsIconConfig,
-}
-
-cfg_if! {
-    if #[cfg(feature = "emoji")] {
-        const ICON_CONFIG: IconConfig = IconConfig {
-            navigation: NavigationIconConfig {
-                back: '🔙',
-                next: '🔜',
-                up: '🔝',
-                reload: '🔄',
-            },
-            fs: FsIconConfig {
-                file: '📄',
-                directory: '📁',
-                symlink: '🔗',
-                unknown: '❓',
-            },
-        };
-    } else {
-        const ICON_CONFIG: IconConfig = IconConfig {
-            navigation: NavigationIconConfig {
-                back: 'b',
-                next: 'n',
-                up: 'u',
-                reload: 'r',
-            },
-            fs: FsIconConfig {
-                file: 'f',
-                directory: 'd',
-                symlink: 's',
-                unknown: 'u',
-            },
-        };
-    }
-}
 
 #[derive(Clone, Component, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum EntryType {
@@ -72,8 +19,8 @@ pub enum EntryType {
     Unknown,
 }
 
-impl EntryType {
-    pub(crate) fn get_icon(&self) -> char {
+impl WithUiIcon for EntryType {
+    fn get_icon(&self) -> SmolStr {
         match self {
             Self::Directory => ICON_CONFIG.fs.directory,
             Self::File => ICON_CONFIG.fs.file,
@@ -123,12 +70,12 @@ enum ConcreteNode {
 }
 
 #[derive(Clone, Debug)]
-struct NodeData {
+struct NodeInfo {
     name: String,
     path: PathBuf,
 }
 
-impl<P: Into<PathBuf>> From<P> for NodeData {
+impl<P: Into<PathBuf>> From<P> for NodeInfo {
     fn from(value: P) -> Self {
         let path = value.into();
         let name = path
@@ -144,47 +91,61 @@ impl<P: Into<PathBuf>> From<P> for NodeData {
 enum EntryTypeData {
     Directory,
     File,
-    Link(NodeData),
+    Link(NodeInfo),
 }
 
 #[derive(Clone, Debug)]
-struct ResolvedEntry {
-    data: NodeData,
+pub struct ResolvedEntry {
+    info: NodeInfo,
     entry_type: EntryTypeData,
 }
 
 #[derive(Clone, Copy, Debug, Default, Event)]
 pub struct CurrentDirectoryChanged;
 
-fn startup_fs_plugin(mut commands: Commands) -> std::result::Result<(), io::Error> {
-    let path = current_dir()?;
-    let task = IoTaskPool::get().spawn({
-        let path = path.clone();
-        async {
+#[derive(Clone, Debug, Event)]
+pub enum FsEvents {
+    DirectoryResolved(PathBuf),
+    IoError(String),
+}
+
+fn resolve_entry(entry: std::fs::DirEntry) -> Option<ResolvedEntry> {
+    let path = entry.path();
+    let entry_type = if path.is_file() {
+        EntryTypeData::File
+    } else if path.is_dir() {
+        EntryTypeData::Directory
+    } else {
+        let link = read_link(path).ok()?;
+        EntryTypeData::Link(link.into())
+    };
+    let data = NodeInfo {
+        name: entry.file_name().to_string_lossy().to_string(),
+        path: entry.path(),
+    };
+    Some(ResolvedEntry {
+        info: data,
+        entry_type,
+    })
+}
+
+fn read_dir_task<P: Into<PathBuf>>(path: P) -> Task<Result<Vec<ResolvedEntry>, String>> {
+    IoTaskPool::get().spawn({
+        let path: PathBuf = path.into();
+        async move {
             let entries = read_dir(path).map_err(|e| e.to_string())?;
             Ok(entries
                 .flatten()
-                .filter_map(|entry| {
-                    let path = entry.path();
-                    let entry_type = if path.is_file() {
-                        EntryTypeData::File
-                    } else if path.is_dir() {
-                        EntryTypeData::Directory
-                    } else {
-                        let link = read_link(path).ok()?;
-                        EntryTypeData::Link(link.into())
-                    };
-                    let data = NodeData {
-                        name: entry.file_name().to_string_lossy().to_string(),
-                        path: entry.path(),
-                    };
-                    Some(ResolvedEntry { data, entry_type })
-                })
+                .filter_map(resolve_entry)
                 .collect::<Vec<_>>())
         }
-    });
+    })
+}
+
+fn startup_fs_plugin(mut commands: Commands, cwd: Res<CurrentDirectory>) {
+    let path: PathBuf = cwd.clone();
+    let task = read_dir_task(&path);
     commands.spawn(Loader { path, task });
-    Ok(())
 }
 
 fn log_error_fn(In(result): In<io::Result<()>>) {
@@ -194,26 +155,24 @@ fn log_error_fn(In(result): In<io::Result<()>>) {
 }
 
 fn poll_loader_tasks(
-    time: Res<Time>,
     mut commands: Commands,
+    mut fs_events: EventWriter<FsEvents>,
     loaders: Query<(Entity, &mut Loader)>,
 ) {
     for (e, mut loader) in loaders {
         if let Some(result) = block_on(poll_once(&mut loader.task)) {
             match result {
                 Ok(entries) => {
-                    info!("read_dir elapsed: {} seconds", time.elapsed_secs());
-                    info!("{entries:?}");
+                    let path = loader.path.clone();
+                    fs_events.write(FsEvents::DirectoryResolved(path.clone()));
                     commands
                         .entity(e)
                         .remove::<Loader>()
-                        .insert(LoadedDirectory {
-                            path: loader.path.clone(),
-                            entries,
-                        });
+                        .insert(LoadedDirectory { path, entries });
                 }
                 Err(message) => {
                     error!("Loader Error: {message}");
+                    fs_events.write(FsEvents::IoError(message));
                 }
             }
         }
@@ -226,10 +185,11 @@ pub fn fs_plugin(app: &mut App) {
         current_dir().expect("no current working directory?!"),
     ))
     .add_event::<CurrentDirectoryChanged>()
+    .add_event::<FsEvents>()
     .add_systems(
         Startup,
         // fs does not wait for ui
-        startup_fs_plugin.pipe(log_error_fn),
+        startup_fs_plugin,
     )
     .add_systems(
         Update,

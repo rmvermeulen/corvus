@@ -7,9 +7,10 @@ use bevy_cobweb::prelude::*;
 use bevy_cobweb_ui::prelude::*;
 use itertools::Itertools;
 
+use crate::config::ICON_CONFIG;
 use crate::fs::EntryType;
 use crate::resources::CurrentDirectory;
-use crate::traits::PathChecksExt;
+use crate::traits::{PathChecksExt, WithUiIcon};
 use crate::ui::ui_events::{LocationSelectionUpdated, UpdateLocationText, UpdatePreview};
 use crate::ui::{ExplorerCommand, broadcast_fn};
 
@@ -122,15 +123,32 @@ fn setup_navigation<'a>(navigation: &mut SceneHandle<'a, UiBuilder<'a, Entity>>)
     assert!(navigation.path_ends_with(&["navigation"]));
 
     let configs = [
-        ("back_button", ExplorerCommand::HistoryBack),
-        ("next_button", ExplorerCommand::HistoryNext),
-        ("up_button", ExplorerCommand::GotoParent),
-        ("reload_button", ExplorerCommand::Reload),
+        (
+            "back_button",
+            ICON_CONFIG.navigation.back,
+            ExplorerCommand::HistoryBack,
+        ),
+        (
+            "next_button",
+            ICON_CONFIG.navigation.next,
+            ExplorerCommand::HistoryNext,
+        ),
+        (
+            "up_button",
+            ICON_CONFIG.navigation.up,
+            ExplorerCommand::GotoParent,
+        ),
+        (
+            "reload_button",
+            ICON_CONFIG.navigation.reload,
+            ExplorerCommand::Reload,
+        ),
     ];
 
-    for (name, explorer_command) in configs {
+    for (name, icon, explorer_command) in configs {
         navigation
             .get(name)
+            .update_text(icon)
             .on_pressed(move |mut commands: Commands| {
                 let explorer_command = explorer_command.clone();
                 info!("{explorer_command:?}");
@@ -174,8 +192,7 @@ pub fn init_main_tab<'a>(sh: &mut SceneHandle<'a, UiBuilder<'a, Entity>>) {
                 sh.on_pressed(|| {
                     info!("overview-item[icon]: on_pressed not implemented!");
                 });
-                let icon = entry_type.get_icon();
-                sh.get("text").update_text(format!("[{icon}]"));
+                sh.get("text").update_text(entry_type.get_icon());
             })
             .spawn_scene(("widgets", "button"), |sh| {
                 sh.insert(entry_type);

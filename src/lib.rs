@@ -5,6 +5,7 @@ use crate::ui::ui_plugin;
 
 #[cfg(debug_assertions)]
 mod cobweb_warning_subscriber;
+pub mod config;
 mod fs;
 mod resources;
 mod traits;
